@@ -1,0 +1,19 @@
+{
+  "name": "grasshopper_live_bridge",
+  "version": "1.0.0",
+  "description": "A three-tier system for live coding and AI-driven design in Grasshopper.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "example": "examples"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}
