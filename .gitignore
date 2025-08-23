@@ -1,0 +1,25 @@
+# Build outputs
+*.dll
+*.gha
+*.pdb
+bin/
+obj/
+
+# Node
+node_modules/
+*.vsix
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE
+.vs/
+.vscode/settings.json
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
