@@ -570,6 +570,23 @@ try:
     py_modules.append(dump_py_module(trees, "ghpythonlib.trees"))
 except Exception:
     pass
+# Ensure we include both modern and legacy tree helpers
+for modname in ("ghpythonlib.treehelpers", "ghpythonlib.trees"):
+    try:
+        mod = __import__(modname, fromlist=["*"])
+        label = modname  # show exact module name in the MD
+        # avoid duplicates if both resolve to the same thing
+        if not any(m["name"] == label for m in py_modules):
+            py_modules.append(dump_py_module(mod, label))
+    except Exception:
+        pass
+
+# Add scriptcontext (handy in GhPython)
+try:
+    import scriptcontext as sc
+    py_modules.append(dump_py_module(sc, "scriptcontext"))
+except Exception:
+    pass
 
 data["py_modules"] = py_modules
 
