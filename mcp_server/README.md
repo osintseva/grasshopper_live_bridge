@@ -136,6 +136,8 @@ Ask Claude natural language questions:
 
 ## 🔧 Development & Testing
 
+📖 **Want to extend the server?** See **[DEVELOPMENT_GUIDES.md](./DEVELOPMENT_GUIDES.md)** for step-by-step guides on adding tools, prompts, and resources.
+
 ```bash
 # Run with verbose logging
 node hybrid-server.js --verbose

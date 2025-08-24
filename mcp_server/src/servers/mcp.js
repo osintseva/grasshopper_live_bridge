@@ -4,6 +4,8 @@ import {
   CallToolRequestSchema,
   ErrorCode,
   ListToolsRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
   McpError,
 } from "@modelcontextprotocol/sdk/types.js";
 
@@ -11,6 +13,7 @@ import { getStore } from '../state/store.js';
 import { getLogger } from '../utils/logger.js';
 import * as canvasTools from '../tools/canvas.js';
 import * as scriptTools from '../tools/scripts.js';
+import * as prompts from '../prompts/index.js';
 
 const logger = getLogger();
 
@@ -25,6 +28,7 @@ export function createMcpServer(config = {}) {
     {
       capabilities: {
         tools: {},
+        prompts: {},
       },
     }
   );
@@ -372,6 +376,30 @@ export function createMcpServer(config = {}) {
       throw new McpError(
         ErrorCode.InternalError,
         `Tool execution failed: ${error.message}`
+      );
+    }
+  });
+
+  // Handle prompt list requests
+  server.setRequestHandler(ListPromptsRequestSchema, async () => {
+    const availablePrompts = await prompts.getAvailablePrompts();
+    return {
+      prompts: availablePrompts
+    };
+  });
+
+  // Handle get prompt requests
+  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    try {
+      const { name, arguments: args } = request.params;
+      const result = await prompts.getPrompt(name, args || {});
+      
+      return result;
+    } catch (error) {
+      logger.error(`Prompt error: ${error.message}`, error);
+      throw new McpError(
+        ErrorCode.InternalError,
+        `Prompt execution failed: ${error.message}`
       );
     }
   });
