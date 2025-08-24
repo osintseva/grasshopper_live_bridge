@@ -4,9 +4,18 @@
       "Bash(mkdir:*)",
       "Bash(dotnet clean:*)",
       "Bash(powershell:*)",
-      "Bash(dotnet build)"
+      "Bash(dotnet build)",
+      "Bash(git checkout:*)",
+      "Bash(npm install:*)",
+      "Bash(node:*)",
+      "Bash(curl:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "grasshopper-bridge"
+  ]
 }
