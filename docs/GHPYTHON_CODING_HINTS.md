@@ -162,6 +162,86 @@ curves = [circle.ToNurbsCurve() for circle in circles]
 
 ---
 
+## Rhino 7 (IronPython) Compatibility
+
+### ✅ Use .NET System Libraries Instead of Python Standard Library
+**Issue**: Standard Python `random` and `math` modules not available in IronPython.
+
+**Solution**: Use .NET System libraries.
+
+```python
+# Instead of: import random, math
+import System
+import System.Math as math
+
+# Random number generation
+random_gen = System.Random()
+angle = random_gen.NextDouble() * 2.0 * math.PI
+radius = random_gen.NextDouble() * 20.0
+
+# Math functions  
+x = radius * math.Cos(angle)  # System.Math.Cos
+y = radius * math.Sin(angle)  # System.Math.Sin
+```
+
+### ✅ Safe Input Parameter Access
+**Issue**: Input variables may not exist if not connected.
+
+**Solution**: Use try/except with fallback defaults.
+
+```python
+# Safe input access for IronPython
+try:
+    N_value = N if 'N' in globals() and N is not None else 20
+except:
+    N_value = 20
+
+# Alternative approach
+def safe_input(var_name, default):
+    try:
+        return globals()[var_name] if var_name in globals() else default
+    except:
+        return default
+
+N_value = safe_input('N', 20)
+```
+
+### ✅ IronPython String Formatting
+**Pattern**: Use .format() method, not f-strings.
+
+```python
+# IronPython compatible (works)
+message = "Generated {} circles from {} points".format(len(circles), N_value)
+
+# Modern Python (doesn't work in IronPython)
+# message = f"Generated {len(circles)} circles"  # DON'T USE
+```
+
+### ✅ Programmatic Parameter Creation in Rhino 7
+**Method**: Use WebSocket parameter definitions with C# reflection.
+
+**C# Component Side** (UpdateComponentParameters method):
+```csharp
+// Rhino 7 GHPython parameter creation
+if (isLegacy) { 
+    compType.GetMethod("Menu_AddInput", BF)?.Invoke(ghComp, null); 
+    compType.GetMethod("Menu_AddOutput", BF)?.Invoke(ghComp, null); 
+}
+```
+
+**JavaScript Side**:
+```javascript
+param_definitions: [
+  { type: 'input', name: 'N', access: 'item' },
+  { type: 'output', name: 'circles' },  
+  { type: 'output', name: 'out' }
+]
+```
+
+**Result**: Parameters created via reflection, accessible in Python as variables.
+
+---
+
 ## Template for Multi-Geometry Output
 
 ```python
