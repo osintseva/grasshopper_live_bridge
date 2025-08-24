@@ -1,0 +1,172 @@
+// mcp_server/server.js
+const express = require('express');
+const cors = require('cors');
+const WebSocket = require('ws');
+
+const app = express();
+const HTTP_PORT = 3000; // The port MCP server will run on
+const GH_WS_URL = 'ws://localhost:8181/live'; // Your Grasshopper plugin's WebSocket URL
+
+// --- Middleware ---
+app.use(cors()); // Enable Cross-Origin Resource Sharing for all routes
+app.use(express.json()); // Enable parsing of JSON request bodies
+
+// --- Helper Functions ---
+
+/**
+ * Connects to the Grasshopper WebSocket, sends a 'get_canvas_info' action,
+ * and returns the parsed canvas data.
+ * @returns {Promise<object>} A promise that resolves with the canvas definition JSON.
+ */
+function getGrasshopperCanvas() {
+  return new Promise((resolve, reject) => {
+    console.log(`[MCP] Connecting to Grasshopper at ${GH_WS_URL}...`);
+    const ws = new WebSocket(GH_WS_URL);
+
+    // Set a timeout for the connection and response
+    const timeout = setTimeout(() => {
+      reject(new Error('Timeout: Could not get a response from Grasshopper. Is the component on the canvas?'));
+      try { ws.close(); } catch {}
+    }, 10000); // 10-second timeout
+
+    ws.on('open', () => {
+      console.log('[MCP] Connection to Grasshopper established. Requesting canvas info...');
+      const request = {
+        action: 'get_canvas_info',
+        correlationId: `mcp-${Date.now()}`,
+        payload: {}
+      };
+      ws.send(JSON.stringify(request));
+    });
+
+    ws.on('message', (data) => {
+      try {
+        const response = JSON.parse(data.toString());
+        // We are looking for the specific response to our 'get_canvas_info' request
+        if (response.action === 'get_canvas_info_response' && response.status === 'success') {
+          console.log('[MCP] Canvas info received successfully.');
+          clearTimeout(timeout); // Clear the timeout as we got a response
+          ws.close();
+          // The canvas data is a JSON string within the 'data' field, so we parse it again
+          resolve(JSON.parse(response.data));
+        }
+      } catch (err) {
+        reject(new Error(`Failed to parse response from Grasshopper: ${err.message}`));
+      }
+    });
+
+    ws.on('error', (err) => {
+      console.error('[MCP] WebSocket error:', err.message);
+      clearTimeout(timeout);
+      reject(new Error(`Failed to connect to Grasshopper WebSocket at ${GH_WS_URL}. Is Rhino/Grasshopper running?`));
+    });
+
+    ws.on('close', () => {
+      console.log('[MCP] Connection to Grasshopper closed.');
+    });
+  });
+}
+
+/**
+ * Placeholder function to simulate calling a Large Language Model (LLM).
+ * In a real implementation, this would make an API call to a service like Gemini, OpenAI, etc.
+ * @param {object} canvasJson - The full canvas definition from Grasshopper.
+ * @returns {Promise<string>} A promise that resolves with a markdown description.
+ */
+async function generateAIOverview(canvasJson) {
+    console.log('[AI] Generating AI overview...');
+    
+    // For now, we'll just create a simple summary without a real LLM call.
+    // TODO: Replace this with a real LLM API call.
+    const componentCount = canvasJson.Components ? canvasJson.Components.length : 0;
+    const componentNames = canvasJson.Components.map(c => `\`${c.NickName}\` (${c.Name})`).join(', ');
+
+    // This is where you would construct a detailed prompt for the LLM.
+    const prompt = `
+        Analyze the following Grasshopper definition and provide a technical summary in Markdown.
+        The definition has ${componentCount} components.
+        Components: ${componentNames}.
+        JSON Data: ${JSON.stringify(canvasJson, null, 2).substring(0, 4000)}... 
+        // Note: Be careful with context length for real LLM calls.
+    `;
+    console.log('[AI] Prompt for LLM would be:', prompt);
+
+    // --- Replace this section with your actual LLM API call ---
+    return new Promise(resolve => {
+        setTimeout(() => {
+            const markdownResponse = `
+# Grasshopper Definition Overview
+
+This is a **mock AI-generated summary** of your Grasshopper canvas.
+
+## Canvas Statistics
+- **Total Components**: ${componentCount}
+- **Component List**: ${componentNames || 'No components found.'}
+
+## Technical Description
+The definition appears to be a simple setup. Data flows from source components (like sliders or panels) through various processing components to produce a final output. 
+
+*To enable a real AI summary, replace the placeholder function \`generateAIOverview\` in \`server.js\` with an actual API call to an LLM service.*
+            `;
+            resolve(markdownResponse);
+        }, 500); // Simulate network latency
+    });
+    // --- End of replacement section ---
+}
+
+
+// --- API Endpoints ---
+
+/**
+ * @route GET /
+ * @description Welcome message for the MCP server.
+ */
+app.get('/', (req, res) => {
+  res.send('MCP Server for Grasshopper is running. Welcome!');
+});
+
+/**
+ * @route GET /status
+ * @description Provides the current status of the MCP server.
+ */
+app.get('/status', (req, res) => {
+  res.json({ status: 'running', timestamp: new Date().toISOString() });
+});
+
+/**
+ * @route GET /grasshopper/canvas
+ * @description Fetches the complete canvas definition from the Grasshopper plugin.
+ * This endpoint handles the WebSocket communication for you.
+ */
+app.get('/grasshopper/canvas', async (req, res) => {
+  try {
+    const canvasData = await getGrasshopperCanvas();
+    res.json({ status: 'success', data: canvasData });
+  } catch (error) {
+    console.error(`[ERROR] /grasshopper/canvas: ${error.message}`);
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+/**
+ * @route POST /grasshopper/overview
+ * @description Generates an AI-powered markdown summary of the Grasshopper canvas.
+ */
+app.post('/grasshopper/overview', async (req, res) => {
+    try {
+        const canvasData = await getGrasshopperCanvas();
+        const overviewMarkdown = await generateAIOverview(canvasData);
+        res.setHeader('Content-Type', 'text/markdown');
+        res.send(overviewMarkdown);
+    } catch (error) {
+        console.error(`[ERROR] /grasshopper/overview: ${error.message}`);
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+});
+
+
+// --- Server Startup ---
+app.listen(HTTP_PORT, () => {
+  console.log(`[MCP] Server started successfully.`);
+  console.log(`[MCP] Listening for HTTP requests on http://localhost:${HTTP_PORT}`);
+});

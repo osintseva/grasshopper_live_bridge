@@ -1,0 +1,24 @@
+{
+  "name": "mcp-server",
+  "version": "1.0.0",
+  "description": "A Middleware and Computation Platform (MCP) server for Grasshopper.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "grasshopper",
+    "rhino",
+    "mcp",
+    "cloud-code"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "ws": "^8.17.0"
+  }
+}
+

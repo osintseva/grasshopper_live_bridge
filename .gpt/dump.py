@@ -12,6 +12,7 @@ exclude_folders = [
     "dist",
     "build",
     ".gpt",
+    "obj",
 ]
 
 # Allowed file extensions
@@ -40,6 +41,8 @@ allowed_extensions = (
     ".htm",
     ".xhtml",
     ".css",
+    ".cs",
+    ".csproj",
     ".scss",
     ".sass",
     ".less",
