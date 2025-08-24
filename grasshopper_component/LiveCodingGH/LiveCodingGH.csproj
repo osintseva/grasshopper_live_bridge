@@ -4,6 +4,7 @@
     <TargetFramework>net48</TargetFramework>
     <AssemblyName>LiveCodingGH</AssemblyName>
     <LangVersion>latest</LangVersion>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
 
   <ItemGroup>

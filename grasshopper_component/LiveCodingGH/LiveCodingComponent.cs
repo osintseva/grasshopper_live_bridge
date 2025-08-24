@@ -4,11 +4,14 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Special;
+using Grasshopper.Kernel.Types;
 using Newtonsoft.Json;
+using Rhino.Geometry;
 using WebSocketSharp;
 using WebSocketSharp.Server;
 
@@ -22,6 +25,7 @@ namespace LiveCoding
     ///   - create_slider                      { x?, y?, nickname? }
     ///   - create_python_script               { x?, y?, code? }
     ///   - update_script                      { componentId, code }
+    ///   - get_canvas_info                    (returns JSON of entire canvas definition)
     /// </summary>
     public class LiveCodingComponent : GH_Component
     {
@@ -44,9 +48,22 @@ namespace LiveCoding
         {
             pManager.AddTextParameter("Status", "S", "Server status", GH_ParamAccess.item);
             pManager.AddTextParameter("Last Command", "C", "Last received command", GH_ParamAccess.item);
+            pManager.AddTextParameter("Debug Log", "D", "Debug information", GH_ParamAccess.list);
         }
 
         private string LastCommand { get; set; } = "—";
+        private readonly List<string> DebugLog = new List<string>();
+        
+        private void LogDebug(string message)
+        {
+            var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
+            var logEntry = $"[{timestamp}] {message}";
+            DebugLog.Add(logEntry);
+            
+            // Keep only last 20 entries
+            if (DebugLog.Count > 20)
+                DebugLog.RemoveAt(0);
+        }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
@@ -62,6 +79,7 @@ namespace LiveCoding
 
             DA.SetData(0, status);
             DA.SetData(1, LastCommand);
+            DA.SetDataList(2, DebugLog);
         }
 
         // ---------------------- WebSocket bootstrap ----------------------
@@ -93,6 +111,7 @@ namespace LiveCoding
                     try
                     {
                         LastCommand = $"{msg.Action} @ {DateTime.Now:HH:mm:ss}";
+                        LogDebug($"Processing message: {msg.Action}");
                         Execute(msg);
                         ExpireSolution(true);
                     }
@@ -103,6 +122,7 @@ namespace LiveCoding
                 }
             };
             _pump.Start();
+            LogDebug("Message pump started");
         }
 
         // ---------------------- Command dispatcher ----------------------
@@ -110,7 +130,13 @@ namespace LiveCoding
         private void Execute(CommandMessage cmd)
         {
             var doc = Grasshopper.Instances.ActiveCanvas?.Document;
-            if (doc == null) return;
+            LogDebug($"Execute: ActiveCanvas null? {Grasshopper.Instances.ActiveCanvas == null}, Document null? {doc == null}");
+            
+            if (doc == null) 
+            {
+                LogDebug("No active Grasshopper document - command ignored");
+                return;
+            }
 
             var payload = cmd.Payload ?? new Dictionary<string, object>();
 
@@ -132,6 +158,10 @@ namespace LiveCoding
                     UpdateExistingScript(doc, payload);
                     break;
 
+                case "get_canvas_info":
+                    GetCanvasInfo(doc);
+                    break;
+
                 default:
                     AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Unknown action: {cmd.Action}");
                     break;
@@ -150,6 +180,224 @@ namespace LiveCoding
         private static readonly BindingFlags BF =
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic |
             BindingFlags.FlattenHierarchy | BindingFlags.IgnoreCase;
+
+        // ---------------------- Canvas Analysis ----------------------
+        
+        private const int PREVIEW_CHAR_LIMIT = 20;
+        private const int FULL_DATA_CHAR_LIMIT = 10000;
+
+        private void GetCanvasInfo(GH_Document doc)
+        {
+            try
+            {
+                LogDebug($"GetCanvasInfo started. Doc null? {doc == null}");
+                if (doc == null)
+                {
+                    LogDebug("No active Grasshopper document found");
+                    return;
+                }
+                
+                var definition = new CompactGhDefinition();
+                var docObjects = doc.Objects.ToList();
+                var guidToIndexMap = docObjects.Select((obj, i) => new { obj.InstanceGuid, i }).ToDictionary(x => x.InstanceGuid, x => x.i);
+
+                for (int i = 0; i < docObjects.Count; i++)
+                {
+                    var obj = docObjects[i];
+                    var myComponent = new CompactGhComponent { Id = i };
+
+                    if (obj is IGH_Component ghComponent)
+                    {
+                        myComponent.Name = ghComponent.Name;
+                        myComponent.NickName = ghComponent.NickName;
+                        myComponent.Description = ghComponent.Description;
+                        myComponent.IsComponent = true;
+                        
+                        foreach (var inputParam in ghComponent.Params.Input)
+                        {
+                            var connections = new List<int[]>();
+                            foreach (var source in inputParam.Sources)
+                            {
+                                var sourceOwnerObj = source.Attributes.GetTopLevel.DocObject;
+                                if (sourceOwnerObj != null && guidToIndexMap.TryGetValue(sourceOwnerObj.InstanceGuid, out int sourceId))
+                                {
+                                    int sourceParamIndex = (sourceOwnerObj is IGH_Component sourceComp) ? sourceComp.Params.Output.IndexOf(source) : 0;
+                                    if(sourceParamIndex > -1) connections.Add(new int[] { sourceId, sourceParamIndex });
+                                }
+                            }
+                            myComponent.Inputs.Add(new GhInputParameter { Name = inputParam.Name, TypeName = inputParam.TypeName, Connections = connections });
+                        }
+
+                        bool isSourceComponent = !ghComponent.Params.Input.Any(p => p.Sources.Any());
+                        myComponent.Outputs = ghComponent.Params.Output.Select(p => {
+                            bool isUnconnectedOutput = p.Recipients.Count == 0;
+                            bool showFullData = isSourceComponent || isUnconnectedOutput;
+
+                            var data = p.VolatileData.AllData(true);
+                            var sb = new StringBuilder();
+                            foreach (var goo in data)
+                            {
+                                if (sb.Length > 0) sb.Append(", ");
+                                sb.Append(GetDataPreviewString(goo));
+                                if (!showFullData && sb.Length > PREVIEW_CHAR_LIMIT)
+                                {
+                                    sb.Length = PREVIEW_CHAR_LIMIT;
+                                    sb.Append("...");
+                                    break;
+                                }
+                            }
+                            string dataPreview = sb.ToString();
+                            if (showFullData && dataPreview.Length > FULL_DATA_CHAR_LIMIT)
+                            {
+                                dataPreview = dataPreview.Substring(0, FULL_DATA_CHAR_LIMIT) + "...";
+                            }
+
+                            return new GhOutputParameter { Name = p.Name, TypeName = p.TypeName, DataPreview = dataPreview };
+                        }).ToList();
+                    }
+                    else if (obj is IGH_Param ghParam)
+                    {
+                        myComponent.Name = ghParam.Name;
+                        myComponent.NickName = ghParam.NickName;
+                        myComponent.Description = ghParam.Description;
+                        myComponent.IsComponent = false;
+
+                        bool isSourceParam = ghParam.Sources.Count == 0;
+                        bool isUnconnectedOutput = ghParam.Recipients.Count == 0;
+                        bool showFullData = isSourceParam || isUnconnectedOutput;
+
+                        var data = ghParam.VolatileData.AllData(true);
+                        var sb = new StringBuilder();
+                        foreach (var goo in data)
+                        {
+                            if (sb.Length > 0) sb.Append(", ");
+                            sb.Append(GetDataPreviewString(goo));
+                            if (!showFullData && sb.Length > PREVIEW_CHAR_LIMIT)
+                            {
+                                sb.Length = PREVIEW_CHAR_LIMIT;
+                                sb.Append("...");
+                                break;
+                            }
+                        }
+                        string dataPreview = sb.ToString();
+                        if (showFullData && dataPreview.Length > FULL_DATA_CHAR_LIMIT)
+                        {
+                            dataPreview = dataPreview.Substring(0, FULL_DATA_CHAR_LIMIT) + "...";
+                        }
+
+                        myComponent.Outputs.Add(new GhOutputParameter { Name = ghParam.Name, TypeName = ghParam.TypeName, DataPreview = dataPreview });
+
+                        if (ghParam.Sources.Any())
+                        {
+                            var connections = new List<int[]>();
+                            foreach(var source in ghParam.Sources)
+                            {
+                                var sourceOwnerObj = source.Attributes.GetTopLevel.DocObject;
+                                if (sourceOwnerObj != null && guidToIndexMap.TryGetValue(sourceOwnerObj.InstanceGuid, out int sourceId))
+                                {
+                                    int sourceParamIndex = (sourceOwnerObj is IGH_Component sourceComp) ? sourceComp.Params.Output.IndexOf(source) : 0;
+                                    if(sourceParamIndex > -1) connections.Add(new int[] { sourceId, sourceParamIndex });
+                                }
+                            }
+                            myComponent.Inputs.Add(new GhInputParameter { Name = "Input", TypeName = ghParam.TypeName, Connections = connections });
+                        }
+                    }
+                    definition.Components.Add(myComponent);
+                }
+
+                LogDebug($"Found {docObjects.Count} objects in document");
+                
+                string jsonResult = Newtonsoft.Json.JsonConvert.SerializeObject(definition, Newtonsoft.Json.Formatting.Indented);
+                LogDebug($"JSON serialized, length: {jsonResult.Length}");
+                
+                // Broadcast the canvas info via WebSocket
+                try
+                {
+                    BroadcastCanvasInfo(jsonResult);
+                    LogDebug("Canvas info sent via WebSocket");
+                }
+                catch (Exception broadcastEx)
+                {
+                    LogDebug($"Broadcast failed: {broadcastEx.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Failed to get canvas info: {ex.Message}");
+            }
+        }
+
+        private string GetDataPreviewString(IGH_Goo goo)
+        {
+            if (goo == null) return "null";
+
+            switch (goo.ScriptVariable())
+            {
+                case Point3d pt:
+                    return $"Pt({pt.X:F2},{pt.Y:F2},{pt.Z:F2})";
+
+                case Line line:
+                    return $"Line[({line.From.X:F2},{line.From.Y:F2},{line.From.Z:F2})->({line.To.X:F2},{line.To.Y:F2},{line.To.Z:F2})]";
+
+                case Curve curve when curve.IsLinear():
+                    return $"Line[({curve.PointAtStart.X:F2},{curve.PointAtStart.Y:F2},{curve.PointAtStart.Z:F2})->({curve.PointAtEnd.X:F2},{curve.PointAtEnd.Y:F2},{curve.PointAtEnd.Z:F2})]";
+
+                case Curve curve:
+                    var nurbsCurve = curve.ToNurbsCurve();
+                    if (nurbsCurve != null)
+                    {
+                        string pointsStr = string.Join(";", nurbsCurve.Points.Select(p => $"({p.Location.X:F2},{p.Location.Y:F2},{p.Location.Z:F2})"));
+                        return $"CurvePts[{pointsStr}]";
+                    }
+                    return $"Curve(L={curve.GetLength():F2})";
+
+                case Brep brep:
+                    return $"Brep(V={brep.Vertices.Count},F={brep.Faces.Count})";
+
+                default:
+                    return goo.ToString();
+            }
+        }
+
+        private void BroadcastCanvasInfo(string jsonData)
+        {
+            LogDebug($"BroadcastCanvasInfo called. Server null? {_server == null}");
+            
+            if (_server?.WebSocketServices != null)
+            {
+                LogDebug($"WebSocketServices found: {_server.WebSocketServices.Count} services");
+                
+                var service = _server.WebSocketServices["/live"];
+                LogDebug($"/live service null? {service == null}");
+                
+                if (service?.Sessions != null)
+                {
+                    LogDebug($"Sessions count: {service.Sessions.Count}");
+                    
+                    var response = new
+                    {
+                        action = "get_canvas_info_response",
+                        correlationId = Guid.NewGuid().ToString(),
+                        status = "success",
+                        data = jsonData
+                    };
+                    
+                    string responseJson = Newtonsoft.Json.JsonConvert.SerializeObject(response);
+                    LogDebug($"Broadcasting response, length: {responseJson.Length}");
+                    
+                    service.Sessions.Broadcast(responseJson);
+                    LogDebug("Broadcast completed");
+                }
+                else
+                {
+                    LogDebug("Service sessions is null");
+                }
+            }
+            else
+            {
+                LogDebug("Server or WebSocketServices is null");
+            }
+        }
 
         // ---------------------- Create Slider ----------------------
 
@@ -462,5 +710,37 @@ namespace LiveCoding
         [JsonProperty("action")] public string Action { get; set; }
         [JsonProperty("correlationId")] public string CorrelationId { get; set; }
         [JsonProperty("payload")] public Dictionary<string, object> Payload { get; set; }
+    }
+
+    // ---------------------- Canvas Analysis Data Models ----------------------
+
+    public class CompactGhDefinition 
+    { 
+        public List<CompactGhComponent> Components { get; set; } = new List<CompactGhComponent>(); 
+    }
+
+    public class GhInputParameter 
+    { 
+        public string Name { get; set; } 
+        public string TypeName { get; set; } 
+        public List<int[]> Connections { get; set; } = new List<int[]>(); 
+    }
+
+    public class GhOutputParameter 
+    { 
+        public string Name { get; set; } 
+        public string TypeName { get; set; } 
+        public string DataPreview { get; set; } 
+    }
+
+    public class CompactGhComponent
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string NickName { get; set; }
+        public string Description { get; set; }
+        public bool IsComponent { get; set; }
+        public List<GhInputParameter> Inputs { get; set; } = new List<GhInputParameter>();
+        public List<GhOutputParameter> Outputs { get; set; } = new List<GhOutputParameter>();
     }
 }
