@@ -16,15 +16,10 @@ This is a three-tier system for live coding and AI-driven design in Grasshopper,
   - Can create sliders and other components
   - Uses reflection to handle different GHPython versions
 
-### 2. VSCode Extension (`/vscode_extension/`)
-- **File**: `src/extension.js`
-- **Purpose**: Live Python editing interface
-- **Status**: Basic structure present, connects to WebSocket
-
-### 3. MCP Server (`/mcp_server/`)
+### 2. MCP Server (`/mcp_server/`)
 - **Status**: Coming soon (AI orchestration layer)
 
-### 4. Node.js Scripts (`/scripts/`)
+### 3. Node.js Scripts (`/scripts/`)
 - **Main Script**: `test_connection.js` - WebSocket client for testing
 - **Test File**: `testing/test_script.py` - Simple Python script for testing
 
@@ -49,8 +44,6 @@ grasshopper_live_bridge/
 ├── grasshopper_component/LiveCodingGH/
 │   ├── LiveCodingComponent.cs (Main C# component)
 │   └── LiveCodingGH.csproj
-├── vscode_extension/
-│   └── src/extension.js
 ├── mcp_server/ (placeholder)
 ├── scripts/
 │   ├── test_connection.js (WebSocket test client)
@@ -61,13 +54,12 @@ grasshopper_live_bridge/
 ## Development Workflow
 1. Build and install Grasshopper component (.gha file)
 2. Place component in Grasshopper canvas
-3. Use Node.js scripts or VSCode extension to send commands
+3. Use Node.js scripts to send commands
 4. Python scripts are created/updated in real-time
 
 ## Current Status
 - Grasshopper component: Functional with WebSocket server
 - Test script: Working for creating Python components
-- VSCode extension: Basic structure present
 - MCP server: Not implemented yet
 
 ## Usage Examples
