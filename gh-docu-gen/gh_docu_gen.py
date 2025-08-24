@@ -10,7 +10,7 @@
 #! python3
 # --*-- coding: utf-8 --*--
 
-import sys, os, datetime
+import sys, os, datetime, json
 
 # --- Repo-relative output helpers (drop-in) ---
 
@@ -588,6 +588,7 @@ try:
 except Exception:
     pass
 
+
 data["py_modules"] = py_modules
 
 # --- Optional: Grasshopper components catalog (heavy) ---
@@ -808,6 +809,70 @@ if components_catalog:
                             md_escape(p.get("type","")),
                             md_escape(p.get("desc",""))
                         ))
+
+# --- Build a flat record list for search index (types + members) ---
+records = []
+
+def push_record(kind, asm_name, ns, type_name, text, extra=None):
+    records.append({
+        "kind": kind,  # "type" | "field" | "ctor" | "property" | "method" | "event" | "pyfunc" | "gh_component"
+        "assembly": asm_name, "namespace": ns, "type": type_name,
+        "text": text, "extra": extra or {}
+    })
+
+for asm in data["assemblies"]:
+    asm_name = asm["name"]
+    for ns, types in asm["namespaces"].items():
+        for t in types:
+            tname = t["name"]
+            # type record
+            t_text = "{}\n{}\nBase: {}\nInterfaces: {}".format(
+                t["display"], t.get("summary","") or "",
+                t.get("base") or "", ", ".join(t.get("interfaces",[]))
+            )
+            push_record("type", asm_name, ns, tname, t_text)
+
+            for sig, doc, obs in t["fields"]:
+                push_record("field", asm_name, ns, tname, "{}\n{}".format(sig, doc or ""))
+
+            for sig, doc, obs in t["constructors"]:
+                push_record("ctor", asm_name, ns, tname, "{}\n{}".format(sig, doc or ""))
+
+            for sig, doc, obs in t["properties"]:
+                push_record("property", asm_name, ns, tname, "{}\n{}".format(sig, doc or ""))
+
+            for sig, doc, obs, pnames, pdocs, rdoc in t["methods"]:
+                pdoc_str = "; ".join("`{}`: {}".format(k, v) for k, v in (pdocs or {}).items())
+                full = "{}\n{}\nParams: {}\nReturns: {}".format(sig, doc or "", pdoc_str, rdoc or "")
+                push_record("method", asm_name, ns, tname, full, {"params": pdocs or {}})
+
+            for sig, doc, obs in t["events"]:
+                push_record("event", asm_name, ns, tname, "{}\n{}".format(sig, doc or ""))
+
+# include Python modules
+for mod in data.get("py_modules", []):
+    mname = mod["name"]
+    for f in mod["functions"]:
+        txt = "{}.{} {}\n{}".format(mname, f["name"], f.get("signature","") or "", f.get("doc","") or "")
+        push_record("pyfunc", "Python", mname, mname, txt)
+
+# (optional) include GH components catalog if you enabled it
+if components_catalog:
+    for cat, subs in components_catalog.items():
+        for sub, comps in subs.items():
+            for c in comps:
+                txt = "{} ({})\nGUID: {}\nInputs: {}\nOutputs: {}".format(
+                    c.get("name",""), c.get("nick",""), c.get("guid",""),
+                    ", ".join((p.get("nick") or p.get("name","")) for p in c.get("inputs",[])),
+                    ", ".join((p.get("nick") or p.get("name","")) for p in c.get("outputs",[]))
+                )
+                push_record("gh_component", "Grasshopper", cat + " > " + (sub or ""), c.get("name",""), txt, extra=c)
+
+# write JSONL next to the MD
+jsonl_path = os.path.splitext(out_path)[0] + ".jsonl"
+with open(jsonl_path, "w", encoding="utf-8") as jf:
+    for r in records:
+        jf.write(json.dumps(r, ensure_ascii=False) + "\n")
 
 # --- Write file ---
 try:
