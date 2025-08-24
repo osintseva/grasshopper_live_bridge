@@ -4,7 +4,7 @@ Complete guide for building and developing the Grasshopper Live Bridge with VS C
 
 ## Prerequisites 📋
 
-1. **Rhino 8** - Required for Grasshopper and RhinoCommon references
+1. **Rhino 7** - Required for Grasshopper and RhinoCommon references
 2. **VS Code** - https://code.visualstudio.com
 3. **.NET SDK** - https://dotnet.microsoft.com/download (.NET Framework 4.8 Developer Pack recommended)
 4. **Node.js** - https://nodejs.org (for testing WebSocket API)

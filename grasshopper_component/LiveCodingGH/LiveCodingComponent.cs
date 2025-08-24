@@ -18,7 +18,7 @@ using WebSocketSharp.Server;
 namespace LiveCoding
 {
     /// <summary>
-    /// Live-coding controller for Python (Rhino 8 RhinoCode + legacy GhPython fallback).
+    /// Live-coding controller for Python (Rhino 7 RhinoCode + legacy GhPython fallback).
     /// WebSocket: ws://localhost:8181/live
     /// Actions:
     ///   - ping
@@ -411,7 +411,7 @@ namespace LiveCoding
         }
 
         // ---------------------- Create Python Script ----------------------
-        // Rhino 8 path: RhinoCodePluginGH.Components.Python3Component.Create(...)
+        // Rhino 7 path: RhinoCodePluginGH.Components.Python3Component.Create(...)
         // Overloads differ; we disambiguate by parameter types.
         // Legacy fallback: GhPython.Component.ZuiPythonComponent with property "Code"/etc.
 
@@ -422,17 +422,17 @@ namespace LiveCoding
             var code = S(payload.TryGetValue("code", out var cv) ? cv : null,
                 "import datetime as _dt\nA = 'Py ready @ ' + _dt.datetime.now().strftime('%H:%M:%S')");
 
-            // Try Rhino 8 API first (RhinoCodePluginGH)
+            // Try Rhino 7 API first (RhinoCodePluginGH)
             var created = TryCreateRhino8Python(doc, x, y, code);
             if (created) return;
 
-            // Fallback to legacy GhPython (Rhino 7 / legacy in Rhino 8)
+            // Fallback to legacy GhPython (Rhino 7 / legacy in Rhino 7)
             var ok = TryCreateLegacyGhPython(doc, x, y, code);
             if (!ok)
             {
                 FallbackPanel(doc, x, y,
                     "Could not create a Python script component.\n" +
-                    "Rhino 8: ensure RhinoCode plugin is loaded.\n" +
+                    "Rhino 7: ensure RhinoCode plugin is loaded.\n" +
                     "Legacy: ensure GHPython is installed.");
             }
         }
@@ -543,11 +543,11 @@ namespace LiveCoding
                 return;
             }
 
-            // Rhino 8 API: prefer SetSource if this is a RhinoCode script component
+            // Rhino 7 API: prefer SetSource if this is a RhinoCode script component
             if (TrySetRhino8Source(obj, code))
             {
                 obj.ExpireSolution(true);
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"Updated code on {obj.NickName} (Rhino 8).");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"Updated code on {obj.NickName} (Rhino 7).");
                 return;
             }
 
