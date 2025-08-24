@@ -159,7 +159,7 @@ namespace LiveCoding
                     break;
 
                 case "get_canvas_info":
-                    GetCanvasInfo(doc);
+                    GetCanvasInfo(doc, cmd.CorrelationId);
                     break;
 
                 default:
@@ -186,7 +186,7 @@ namespace LiveCoding
         private const int PREVIEW_CHAR_LIMIT = 20;
         private const int FULL_DATA_CHAR_LIMIT = 10000;
 
-        private void GetCanvasInfo(GH_Document doc)
+        private void GetCanvasInfo(GH_Document doc, string correlationId = null)
         {
             try
             {
@@ -313,7 +313,7 @@ namespace LiveCoding
                 // Broadcast the canvas info via WebSocket
                 try
                 {
-                    BroadcastCanvasInfo(jsonResult);
+                    BroadcastCanvasInfo(jsonResult, correlationId);
                     LogDebug("Canvas info sent via WebSocket");
                 }
                 catch (Exception broadcastEx)
@@ -359,43 +359,38 @@ namespace LiveCoding
             }
         }
 
-        private void BroadcastCanvasInfo(string jsonData)
+        private void BroadcastCanvasInfo(string jsonData, string correlationId)
         {
-            LogDebug($"BroadcastCanvasInfo called. Server null? {_server == null}");
+            LogDebug($"BroadcastCanvasInfo called. CorrelationId: {correlationId}");
             
-            if (_server?.WebSocketServices != null)
+            try
             {
-                LogDebug($"WebSocketServices found: {_server.WebSocketServices.Count} services");
-                
-                var service = _server.WebSocketServices["/live"];
-                LogDebug($"/live service null? {service == null}");
-                
-                if (service?.Sessions != null)
+                // Create response as simple string format
+                var responseDict = new Dictionary<string, object>
                 {
-                    LogDebug($"Sessions count: {service.Sessions.Count}");
-                    
-                    var response = new
-                    {
-                        action = "get_canvas_info_response",
-                        correlationId = Guid.NewGuid().ToString(),
-                        status = "success",
-                        data = jsonData
-                    };
-                    
-                    string responseJson = Newtonsoft.Json.JsonConvert.SerializeObject(response);
-                    LogDebug($"Broadcasting response, length: {responseJson.Length}");
-                    
-                    service.Sessions.Broadcast(responseJson);
-                    LogDebug("Broadcast completed");
+                    ["action"] = "get_canvas_info_response",
+                    ["correlationId"] = correlationId ?? Guid.NewGuid().ToString(),
+                    ["status"] = "success",
+                    ["data"] = jsonData
+                };
+                
+                string responseJson = JsonConvert.SerializeObject(responseDict);
+                LogDebug($"Response created, length: {responseJson.Length}");
+                
+                if (!string.IsNullOrEmpty(correlationId))
+                {
+                    // Send directly to the requesting session
+                    LiveCodingService.SendToSession(correlationId, responseJson);
+                    LogDebug("Direct session send completed");
                 }
                 else
                 {
-                    LogDebug("Service sessions is null");
+                    LogDebug("No correlation ID - cannot send response");
                 }
             }
-            else
+            catch (Exception ex)
             {
-                LogDebug("Server or WebSocketServices is null");
+                LogDebug($"Response creation failed: {ex.Message}");
             }
         }
 
@@ -682,6 +677,9 @@ namespace LiveCoding
     public class LiveCodingService : WebSocketBehavior
     {
         private readonly System.Collections.Concurrent.ConcurrentQueue<CommandMessage> _queue;
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, LiveCodingService> _sessions = 
+            new System.Collections.Concurrent.ConcurrentDictionary<string, LiveCodingService>();
+        
         public LiveCodingService(System.Collections.Concurrent.ConcurrentQueue<CommandMessage> q) => _queue = q;
 
         protected override void OnMessage(MessageEventArgs e)
@@ -689,6 +687,13 @@ namespace LiveCoding
             try
             {
                 var msg = JsonConvert.DeserializeObject<CommandMessage>(e.Data) ?? new CommandMessage();
+                
+                // Store this session for potential responses
+                if (!string.IsNullOrEmpty(msg.CorrelationId))
+                {
+                    _sessions[msg.CorrelationId] = this;
+                }
+                
                 _queue.Enqueue(msg);
                 var ack = new
                 {
@@ -701,6 +706,22 @@ namespace LiveCoding
             catch (Exception ex)
             {
                 Send(JsonConvert.SerializeObject(new { action = "error", message = ex.Message }));
+            }
+        }
+        
+        public static void SendToSession(string correlationId, string message)
+        {
+            if (_sessions.TryGetValue(correlationId, out var session))
+            {
+                try
+                {
+                    session.Send(message);
+                    _sessions.TryRemove(correlationId, out _); // Clean up
+                }
+                catch
+                {
+                    _sessions.TryRemove(correlationId, out _);
+                }
             }
         }
     }
