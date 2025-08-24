@@ -23,3 +23,6 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# generated docs from GhPython SDK extractor
+/gh-docu-gen/gh-docs-out/

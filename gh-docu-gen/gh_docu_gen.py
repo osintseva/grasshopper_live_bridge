@@ -12,6 +12,42 @@
 
 import sys, os, datetime
 
+# --- Repo-relative output helpers (drop-in) ---
+
+# Customize these:
+OUT_DIR_NAME   = "gh-docs-out"         # folder inside your repo
+FILENAME_BASE  = "gh_python_sdk"       # file base name (without timestamp/extension)
+STAMP_FORMAT   = "%Y-%m-%d_%H-%M-%S"   # filesystem-safe timestamp
+ADD_TIMESTAMP  = True                  # set False to always overwrite a single file
+
+def _project_root():
+    """Prefer the Grasshopper .gh file folder; fall back to this script's folder."""
+    try:
+        # ghenv is available in GhPython
+        doc = ghenv.Component.OnPingDocument()
+        if doc is not None and doc.FilePath:
+            return os.path.dirname(doc.FilePath)
+    except Exception:
+        pass
+    # Fallback: where this script lives (external script linked in GhPython)
+    try:
+        return os.path.dirname(os.path.realpath(__file__))
+    except Exception:
+        # Last resort: user home
+        return os.path.expanduser("~")
+
+def make_out_path():
+    root = _project_root()
+    out_dir = os.path.join(root, OUT_DIR_NAME)
+    if not os.path.isdir(out_dir):
+        os.makedirs(out_dir)
+    stamp = datetime.datetime.now().strftime(STAMP_FORMAT) if ADD_TIMESTAMP else ""
+    filename = "{}_{}.md".format(FILENAME_BASE, stamp) if stamp else "{}.md".format(FILENAME_BASE)
+    return os.path.join(out_dir, filename)
+
+# Use this instead of a hardcoded OUT_PATH:
+OUT_PATH = make_out_path()
+
 # --- Environment guards ---
 import Rhino, Grasshopper
 is_cpython = sys.version_info >= (3,0)
@@ -34,7 +70,7 @@ except Exception:
 
 # --- Defaults for GH inputs (if unwired) ---
 try: out_path
-except NameError: out_path = os.path.expanduser("~/Desktop/gh_python_sdk.md")
+except NameError: out_path = OUT_PATH
 
 try: include_plugins
 except NameError: include_plugins = True
