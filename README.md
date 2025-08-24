@@ -1,81 +1,58 @@
 # Grasshopper Live Bridge 🚀
 
-A three-tier system for live coding and AI-driven design in Grasshopper with WebSocket API and canvas analysis for MCP servers.
+WebSocket-enabled Grasshopper component for live coding and AI-driven design with real-time canvas analysis.
 
 ## Features ✨
 
-- **WebSocket Server** - Real-time communication with Grasshopper
-- **Canvas Analysis** - Get detailed JSON of your entire Grasshopper definition  
-- **Live Coding** - Create and update Python components remotely
-- **MCP Integration** - Perfect for AI agents to understand your canvas
-
-## Components
-
-1. **LiveCodingGH Plugin** - Grasshopper component with WebSocket server
-2. **Node.js Test Scripts** - WebSocket API testing and examples
-3. **MCP Server Support** - Canvas info endpoint for AI integration
+- **🔌 WebSocket API** - Real-time communication with Grasshopper (`ws://localhost:8181/live`)
+- **📊 Canvas Analysis** - Get complete JSON representation of your Grasshopper definition  
+- **⚡ Live Coding** - Create and update Python components remotely
+- **🤖 MCP Integration** - Perfect for AI agents to understand your canvas
 
 ## Quick Start 🚀
 
-### 1. Build & Install Plugin
-
-**Using VS Code (Recommended):**
+### 1. Build & Install 🔨
 ```bash
 cd grasshopper_component/LiveCodingGH
 dotnet build -c Release
 copy "bin\Release\net48\LiveCodingGH.gha" "%APPDATA%\Grasshopper\Libraries\"
 ```
 
-**📖 Detailed Guide:** [VSCODE_BUILD_GUIDE.md](VSCODE_BUILD_GUIDE.md)
-
-### 2. Setup Test Environment
+### 2. Test the API 🧪
 ```bash
 npm install
-```
-
-### 3. Test WebSocket API
-```bash
-# Test connection
 node scripts/test_connection.js ping
-
-# Get canvas information (main feature for MCP)
 node scripts/test_connection.js get_canvas_info --wait=5000
-
-# Create components remotely
-node scripts/test_connection.js create_slider
 ```
+
+### 3. Use in Grasshopper 🦗
+1. Open Grasshopper
+2. Add "Live Coding Controller (Python)" component (Params → Util)
+3. Your WebSocket server is now running!
 
 ## WebSocket API 🔌
 
 **Endpoint:** `ws://localhost:8181/live`
 
-**Get Canvas Info (for MCP servers):**
-```javascript
+**Get Canvas Info:**
+```json
 {
   "action": "get_canvas_info",
-  "correlationId": "unique_id", 
+  "correlationId": "unique_id",
   "payload": {}
 }
 ```
 
-**Response:**
-```javascript
-{
-  "action": "get_canvas_info_response",
-  "status": "success",
-  "data": "{\"Components\":[...]}" // Full canvas JSON
-}
-```
+**Response:** Complete canvas definition with all components, connections, and data previews.
 
 ## Documentation 📖
 
-- **[VSCODE_BUILD_GUIDE.md](VSCODE_BUILD_GUIDE.md)** - Modern VS Code development workflow
-- **[BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md)** - Visual Studio build instructions  
-- **[USAGE_GUIDE.md](USAGE_GUIDE.md)** - Complete API documentation and MCP integration examples
+- **[VSCODE_BUILD_GUIDE.md](VSCODE_BUILD_GUIDE.md)** - Detailed build instructions and development workflow
+- **[USAGE_GUIDE.md](USAGE_GUIDE.md)** - Complete API documentation and integration examples
 
-## Use Cases
+## Use Cases 🎯
 
-- **MCP Servers** - AI agents can query canvas structure and provide contextual help
-- **Live Coding** - Real-time Python component creation and updates
-- **Automation** - Programmatic Grasshopper definition creation
-- **Integration** - Connect Grasshopper with external tools and workflows
+- **🤖 AI Integration** - MCP servers can analyze canvas structure and provide contextual assistance
+- **⚙️ Automation** - Programmatically create and modify Grasshopper definitions
+- **⚡ Live Coding** - Real-time Python component development
+- **🔗 External Tools** - Connect Grasshopper with other applications and workflows
