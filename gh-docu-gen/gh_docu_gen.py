@@ -37,13 +37,13 @@ try: out_path
 except NameError: out_path = os.path.expanduser("~/Desktop/gh_python_sdk.md")
 
 try: include_plugins
-except NameError: include_plugins = False
+except NameError: include_plugins = True
 
 try: declared_only
 except NameError: declared_only = True
 
 try: include_components
-except NameError: include_components = False  # heavy; turn on if you want GH components catalog
+except NameError: include_components = True  # heavy; turn on if you want GH components catalog
 
 try: include_member_xml
 except NameError: include_member_xml = True
