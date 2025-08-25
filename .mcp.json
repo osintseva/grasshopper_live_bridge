@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "grasshopper-bridge": {
+      "command": "node",
+      "args": ["./mcp_server/hybrid-server.js", "--port", "3001"],
+      "env": {}
+    }
+  }
+}

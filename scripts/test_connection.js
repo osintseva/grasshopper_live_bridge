@@ -2,6 +2,7 @@
 // Usage:
 //   node scripts/test_connection.js                       # ping (default)
 //   node scripts/test_connection.js create_slider         # create a slider
+//   node scripts/test_connection.js get_canvas_info       # get canvas info
 //   node scripts/test_connection.js update_script <GUID> <path-to-py>
 // Options:
 //   --wait=10000   keep the socket open N ms (default 800ms)
@@ -25,7 +26,7 @@ for (const a of args) {
   if (a.startsWith('--wait=')) {
     const v = parseInt(a.split('=')[1] || '0', 10);
     if (!Number.isNaN(v) && v >= 0) waitMs = v;
-  } else if (['ping', 'create_slider', 'create_python_script', 'create_csharp_python', 'update_script'].includes(a)) {
+  } else if (['ping', 'create_slider', 'create_python_script', 'create_csharp_python', 'update_script', 'get_canvas_info'].includes(a)) {
     cmd = a;
   } else if ((cmd === 'update_script' || cmd === 'create_python_script') && !guid && cmd === 'update_script') {
     guid = a;
@@ -88,6 +89,12 @@ function run() {
         action: 'update_script',
         correlationId: nowId(),
         payload: { componentId: guid, code }
+      });
+    } else if (cmd === 'get_canvas_info') {
+      send(ws, {
+        action: 'get_canvas_info',
+        correlationId: nowId(),
+        payload: {}
       });
     } else {
       console.error('Unknown command:', cmd);

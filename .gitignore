@@ -23,3 +23,5 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+.gpt/*.txt
