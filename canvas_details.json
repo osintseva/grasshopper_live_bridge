@@ -1,0 +1,240 @@
+{
+  "Components": [
+    {
+      "Id": 0,
+      "Name": "Live Coding Controller (Python)",
+      "NickName": "Live Coding Controller (Python)",
+      "Description": "WebSocket controller for live coding Python in Grasshopper",
+      "IsComponent": true,
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Name": "Status",
+          "TypeName": "Text",
+          "DataPreview": "Server: ws://localhost:8181/live (OK)"
+        },
+        {
+          "Name": "Last Command",
+          "TypeName": "Text",
+          "DataPreview": "get_canvas_info @ 00:38:57"
+        },
+        {
+          "Name": "Debug Log",
+          "TypeName": "Text",
+          "DataPreview": "[Debug logs...]"
+        }
+      ]
+    },
+    {
+      "Id": 1,
+      "Name": "Panel",
+      "NickName": "Panel",
+      "Description": "A panel for custom notes and text values",
+      "IsComponent": false,
+      "Inputs": [
+        {
+          "Name": "Input",
+          "TypeName": "Text",
+          "Connections": [[0, 0]]
+        }
+      ],
+      "Outputs": [
+        {
+          "Name": "Panel",
+          "TypeName": "Text",
+          "DataPreview": "Server: ws://localho..."
+        }
+      ]
+    },
+    {
+      "Id": 2,
+      "Name": "Panel",
+      "NickName": "",
+      "Description": "A panel for custom notes and text values",
+      "IsComponent": false,
+      "Inputs": [
+        {
+          "Name": "Input",
+          "TypeName": "Text",
+          "Connections": [[0, 1]]
+        }
+      ],
+      "Outputs": [
+        {
+          "Name": "Panel",
+          "TypeName": "Text",
+          "DataPreview": "get_canvas_info @ 00:38:57"
+        }
+      ]
+    },
+    {
+      "Id": 3,
+      "Name": "Panel",
+      "NickName": "",
+      "Description": "A panel for custom notes and text values",
+      "IsComponent": false,
+      "Inputs": [
+        {
+          "Name": "Input",
+          "TypeName": "Text",
+          "Connections": [[0, 2]]
+        }
+      ],
+      "Outputs": [
+        {
+          "Name": "Panel",
+          "TypeName": "Text",
+          "DataPreview": "[23:39:09.723] Direc..."
+        }
+      ]
+    },
+    {
+      "Id": 4,
+      "Name": "GhPython Script",
+      "NickName": "GhPython Script",
+      "Description": "GhPython provides a Python script component",
+      "IsComponent": true,
+      "Inputs": [
+        {
+          "Name": "x",
+          "TypeName": "Generic Data",
+          "Connections": []
+        },
+        {
+          "Name": "y",
+          "TypeName": "Generic Data",
+          "Connections": []
+        }
+      ],
+      "Outputs": [
+        {
+          "Name": "out",
+          "TypeName": "Text",
+          "DataPreview": ""
+        },
+        {
+          "Name": "a",
+          "TypeName": "Generic Data",
+          "DataPreview": ""
+        }
+      ]
+    },
+    {
+      "Id": 5,
+      "Name": "Number Slider",
+      "NickName": "Number Slider",
+      "Description": "Numeric slider for single values",
+      "IsComponent": false,
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Name": "Number Slider",
+          "TypeName": "Number",
+          "DataPreview": "0.25"
+        }
+      ]
+    },
+    {
+      "Id": 6,
+      "Name": "Construct Matrix",
+      "NickName": "Construct Matrix",
+      "Description": "Construct a matrix from initial values",
+      "IsComponent": true,
+      "Inputs": [
+        {
+          "Name": "Rows",
+          "TypeName": "Integer",
+          "Connections": [[9, 1], [1, 0]]
+        },
+        {
+          "Name": "Columns",
+          "TypeName": "Integer",
+          "Connections": []
+        },
+        {
+          "Name": "Values",
+          "TypeName": "Number",
+          "Connections": []
+        }
+      ],
+      "Outputs": [
+        {
+          "Name": "Matrix",
+          "TypeName": "Matrix",
+          "DataPreview": ""
+        }
+      ]
+    },
+    {
+      "Id": 7,
+      "Name": "Speckle Object",
+      "NickName": "Speckle Object",
+      "Description": "Base object for Speckle",
+      "IsComponent": false,
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Name": "Speckle Object",
+          "TypeName": "",
+          "DataPreview": ""
+        }
+      ]
+    },
+    {
+      "Id": 8,
+      "Name": "Dot Display",
+      "NickName": "Dot Display",
+      "Description": "Draw a collection of coloured dots",
+      "IsComponent": true,
+      "Inputs": [
+        {
+          "Name": "Point",
+          "TypeName": "Point",
+          "Connections": []
+        },
+        {
+          "Name": "Colour",
+          "TypeName": "Colour",
+          "Connections": []
+        },
+        {
+          "Name": "Size",
+          "TypeName": "Number",
+          "Connections": []
+        }
+      ],
+      "Outputs": []
+    },
+    {
+      "Id": 9,
+      "Name": "GhPython Script",
+      "NickName": "GhPython Script",
+      "Description": "GhPython provides a Python script component",
+      "IsComponent": true,
+      "Inputs": [
+        {
+          "Name": "x",
+          "TypeName": "Generic Data",
+          "Connections": [[3, 0]]
+        },
+        {
+          "Name": "y",
+          "TypeName": "Generic Data",
+          "Connections": []
+        }
+      ],
+      "Outputs": [
+        {
+          "Name": "out",
+          "TypeName": "Text",
+          "DataPreview": ""
+        },
+        {
+          "Name": "a",
+          "TypeName": "Generic Data",
+          "DataPreview": ""
+        }
+      ]
+    }
+  ]
+}

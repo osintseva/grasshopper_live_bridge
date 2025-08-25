@@ -92,13 +92,25 @@ export class GrasshopperClient extends EventEmitter {
   handleMessage(message) {
     // Handle responses to requests
     if (message.correlationId && this.pendingRequests.has(message.correlationId)) {
-      const { resolve, reject } = this.pendingRequests.get(message.correlationId);
+      const request = this.pendingRequests.get(message.correlationId);
+      
+      // Handle queued status - don't resolve/reject, just wait for the next message
+      if (message.status === 'queued') {
+        console.log(`[GH Client] Request ${message.correlationId} queued, waiting for response...`);
+        return; // Keep the pending request active
+      }
+      
+      // Now handle final responses
+      const { resolve, reject } = request;
       this.pendingRequests.delete(message.correlationId);
       
       if (message.status === 'success' || message.ok) {
         resolve(message);
-      } else {
+      } else if (message.status === 'error') {
         reject(new Error(message.error?.message || 'Request failed'));
+      } else {
+        // Unknown status
+        reject(new Error(`Unknown response status: ${message.status}`));
       }
       return;
     }
@@ -121,8 +133,7 @@ export class GrasshopperClient extends EventEmitter {
       const request = {
         action,
         correlationId,
-        ts: Date.now(),
-        data
+        payload: data
       };
 
       const timeout = setTimeout(() => {

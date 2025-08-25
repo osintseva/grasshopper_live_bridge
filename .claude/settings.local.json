@@ -9,7 +9,16 @@
       "Bash(npm install:*)",
       "Bash(node:*)",
       "Bash(curl:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "mcp__grasshopper-bridge__hello_world",
+      "mcp__grasshopper-bridge__get_canvas_state",
+      "mcp__grasshopper-bridge__get_canvas_statistics",
+      "mcp__grasshopper-bridge__get_recent_logs",
+      "mcp__grasshopper-bridge__list_scripts",
+      "mcp__grasshopper-bridge__find_components",
+      "Bash(lsof:*)",
+      "Bash(grep:*)",
+      "Bash(kill:*)"
     ],
     "deny": [],
     "ask": []
