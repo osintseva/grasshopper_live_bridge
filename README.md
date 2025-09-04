@@ -15,7 +15,7 @@ WebSocket-enabled Grasshopper component for live coding and AI-driven design wit
 ```bash
 cd grasshopper_component/LiveCodingGH
 dotnet build -c Release
-copy "bin\Release\net48\LiveCodingGH.gha" "%APPDATA%\Grasshopper\Libraries\"
+Copy-Item "bin\Release\net48\LiveCodingGH.gha" "$env:APPDATA\Grasshopper\Libraries\"
 ```
 
 ### 2. Test the API 🧪
