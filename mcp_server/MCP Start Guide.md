@@ -13,7 +13,7 @@ Both interfaces share the same WebSocket connection to Grasshopper and maintain 
 
 ```
 Claude Code ←→ MCP Protocol (stdio) ←→┐
-                                       ├→ Shared State → Grasshopper WebSocket
+                                      ├→ Shared State → Grasshopper WebSocket
 VSCode/Web  ←→ HTTP API (port 3001) ←→┘                  (ws://localhost:8181)
 ```
 
@@ -42,52 +42,64 @@ VSCode/Web  ←→ HTTP API (port 3001) ←→┘                  (ws://localho
    - Ensure your WebSocket component is on the canvas
    - The component should be listening on `ws://localhost:8181/live`
 
-## 3. Running the Server
+## 3. Configuring Claude Code (Important: Do NOT Start the Server Manually!)
 
-### Option 1: Hybrid Mode (Recommended)
-Runs both MCP and HTTP servers simultaneously:
+⚠️ **IMPORTANT**: When using the MCP server with Claude Code, you should **NOT** start the server manually using `npm run` commands. Claude Code will automatically start and manage the server process when you configure it properly.
+
+## 4. Adding the MCP Server to Claude Code
+
+### Recommended: Using Claude Code CLI (Easiest Method)
+
+The simplest way to add the MCP server is using Claude Code's built-in commands:
+
+#### Step 1: Open a terminal in this directory and run:
+
+**For global access (works in any project):**
 ```bash
-npm run hybrid
+cd mcp_server
+claude mcp add grasshopper-bridge node "$(pwd)/hybrid-server.js"
 ```
 
-With verbose logging:
+**For project-specific access:**
 ```bash
-npm run hybrid:verbose
+cd mcp_server  
+claude mcp add --scope project grasshopper-bridge node "$(pwd)/hybrid-server.js"
 ```
 
-### Option 2: HTTP-Only Mode
-For VSCode extension development:
+**With verbose logging:**
 ```bash
-npm start
+cd mcp_server
+claude mcp add --env MCP_LOG_LEVEL=verbose grasshopper-bridge node "$(pwd)/hybrid-server.js"
 ```
 
-### Option 3: MCP-Only Mode
-For Claude Code only:
+#### Step 2: Verify installation
 ```bash
-npm run mcp
+claude mcp list
+claude mcp get grasshopper-bridge
 ```
 
-## 4. Configuring Claude Code
+#### Step 3: Test in Claude Code
+In Claude Code, use the `/mcp` command to check server status, then test with:
+- "Use the hello_world MCP tool"
+- "Get the current Grasshopper canvas state"
+- "List available MCP tools"
 
-To use this MCP server with Claude Code, you need to update your Claude desktop configuration:
+### Alternative: Manual Configuration (Advanced Users)
 
-### Step 1: Locate your Claude config file
+If you prefer manual configuration, you can edit the Claude desktop config:
 
-The config file is located at:
+**Config file locations:**
 - **macOS**: `~/.config/claude-desktop/claude_desktop_config.json`
-- **Windows**: `%APPDATA%\claude-desktop\claude_desktop_config.json`
+- **Windows**: `%APPDATA%\claude-desktop\claude_desktop_config.json`  
 - **Linux**: `~/.config/claude-desktop/claude_desktop_config.json`
 
-### Step 2: Add the MCP server configuration
-
-Edit the config file and add your server to the `mcp.tools` array:
-
+**Add this to the config:**
 ```json
 {
   "mcp": {
     "tools": [
       {
-        "command": ["node", "/Users/Joo/01_Projects/grasshopper_live_bridge/mcp_server/hybrid-server.js"],
+        "command": ["node", "/full/path/to/hybrid-server.js"],
         "transport": {
           "kind": "stdio"
         }
@@ -97,21 +109,7 @@ Edit the config file and add your server to the `mcp.tools` array:
 }
 ```
 
-**Note:** Replace the path with your actual path to `hybrid-server.js`
-
-### Step 3: Restart Claude Code
-
-After updating the config:
-1. Completely quit Claude Code (Cmd+Q on Mac, Alt+F4 on Windows)
-2. Start Claude Code again
-3. The MCP tools should now be available
-
-### Step 4: Verify the connection
-
-In Claude Code, you can test the connection by asking:
-- "Use the hello_world MCP tool"
-- "Get the current Grasshopper canvas state"
-- "List available MCP tools"
+**Important:** Use the full absolute path to `hybrid-server.js` in your project directory.
 
 ## 5. Available MCP Tools
 
@@ -222,14 +220,48 @@ The server maintains:
 - Script file mappings
 - Cache with TTL (15 seconds default)
 
-## 9. Troubleshooting
+## 9. Manual Server Startup (For HTTP API / VSCode Development Only!)
+
+⚠️ **Only use these commands if you're developing VSCode extensions or need the HTTP API independently of Claude Code:**
+
+### Option 1: Hybrid Mode (Both MCP and HTTP)
+```bash
+npm run hybrid
+```
+
+With verbose logging:
+```bash
+npm run hybrid:verbose
+```
+
+### Option 2: HTTP-Only Mode
+For VSCode extension development:
+```bash
+npm start
+```
+
+### Option 3: MCP-Only Mode (Debugging only)
+```bash
+npm run mcp
+```
+
+**Remember**: If you start the server manually and then try to use it with Claude Code, you'll get port conflicts! Kill the manual process first with `Ctrl+C` before using Claude Code.
+
+## 10. Troubleshooting
 
 ### MCP server not appearing in Claude Code
 
 1. **Check config syntax:** Ensure the JSON is valid
 2. **Check file path:** Use absolute paths in the config
 3. **Check Node.js:** Ensure `node` is in your PATH
-4. **Check logs:** Run the server manually to see errors:
+4. **Kill any manual server processes:** If you previously started the server manually:
+   ```bash
+   # Windows
+   taskkill /f /im node.exe
+   # macOS/Linux
+   killall node
+   ```
+5. **Check logs:** Only for debugging - don't leave this running:
    ```bash
    node /path/to/hybrid-server.js
    ```
@@ -243,15 +275,21 @@ The server maintains:
    ```
 3. **Check WebSocket URL** in the component matches `ws://localhost:8181/live`
 
-### HTTP API not responding
+### HTTP API not responding (VSCode Development Only)
 
-1. **Check port 3001** is available:
+1. **Check port 3000** is available:
    ```bash
-   lsof -i :3001
+   # Windows
+   netstat -ano | findstr :3000
+   # macOS/Linux
+   lsof -i :3000
    ```
 2. **Kill existing processes:**
    ```bash
-   lsof -ti:3001 | xargs kill -9
+   # Windows
+   taskkill /PID <process_id> /F
+   # macOS/Linux
+   lsof -ti:3000 | xargs kill -9
    ```
 
 ## 10. Advanced Configuration
