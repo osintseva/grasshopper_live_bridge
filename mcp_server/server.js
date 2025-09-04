@@ -1,7 +1,7 @@
 // mcp_server/server.js
-const express = require('express');
-const cors = require('cors');
-const WebSocket = require('ws');
+import express from 'express';
+import cors from 'cors';
+import WebSocket from 'ws';
 
 const app = express();
 const HTTP_PORT = 3000; // The port MCP server will run on
