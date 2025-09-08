@@ -34,13 +34,17 @@ ws.on('open', () => {
   console.log('Connected to Grasshopper Live Coding server.');
   console.log(`Creating Python component at (${x}, ${y})`);
   
+  // Extract script name from file path
+  const scriptName = path.basename(filePath, '.py');
+  
   const payload = {
     action: 'create_python',
     correlationId: `py-${Date.now()}`,
     payload: { 
       x: x, 
       y: y, 
-      code: code 
+      code: code,
+      script_name: scriptName 
     }
   };
   
