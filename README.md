@@ -18,17 +18,18 @@ dotnet build -c Release
 Copy-Item "bin\Release\net48\LiveCodingGH.gha" "$env:APPDATA\Grasshopper\Libraries\"
 ```
 
-### 2. Test the API 🧪
+### 2. Use in Grasshopper 🦗
+1. Open Grasshopper
+2. Add "Live Coding Controller (Python)" component (Params → Util)
+3. Your WebSocket server is now running!
+
+### 3. Test the API 🧪
 ```bash
 npm install
 node scripts/test_connection.js ping
 node scripts/test_connection.js get_canvas_info --wait=5000
 ```
 
-### 3. Use in Grasshopper 🦗
-1. Open Grasshopper
-2. Add "Live Coding Controller (Python)" component (Params → Util)
-3. Your WebSocket server is now running!
 
 ## WebSocket API 🔌
 
