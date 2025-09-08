@@ -1,0 +1,17 @@
+{
+  "name": "grasshopper-live-bridge-scripts",
+  "version": "1.0.0",
+  "description": "Development and testing scripts for Grasshopper Live Bridge",
+  "main": "test-connection.js",
+  "scripts": {
+    "test": "node test-connection.js ping",
+    "test:canvas": "node test-connection.js get_canvas_info --wait=5000",
+    "test:connection": "node test-connection.js ping"
+  },
+  "keywords": ["grasshopper", "websocket", "testing"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}

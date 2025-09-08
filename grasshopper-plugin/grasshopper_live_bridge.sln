@@ -4,7 +4,7 @@ VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "grasshopper_component", "grasshopper_component", "{A0D57F1A-9E3D-1FFF-FE67-39414C37FE04}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LiveCodingGH", "grasshopper_component\LiveCodingGH\LiveCodingGH.csproj", "{05196A2B-4C3B-9E0E-28E2-4785DBDCC21C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LiveCodingGH", "LiveCodingGH\LiveCodingGH.csproj", "{05196A2B-4C3B-9E0E-28E2-4785DBDCC21C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

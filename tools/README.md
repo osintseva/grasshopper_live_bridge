@@ -1,8 +1,8 @@
-# 🤖 GPT Project Utils
+# Tools - AI Development Utilities
 
-> 🔧 Utilities for AI-powered project analysis, dumping, and reconstruction
+Python utilities for AI-powered project analysis, dumping, and reconstruction. Perfect for feeding entire projects to ChatGPT, Claude, or other language models! 
 
-This folder contains powerful scripts for working with AI models and project codebases. Perfect for feeding entire projects to ChatGPT, Claude, or other language models! 
+All commands should be run from this directory (`tools/`):
 
 ## 📁 Contents
 
@@ -20,7 +20,7 @@ This folder contains powerful scripts for working with AI models and project cod
 ```bash
 python dump.py
 ```
-This creates a `.gpt/dump.txt` file containing your entire project structure in a format perfect for AI consumption!
+This creates a `dump.txt` file containing your entire project structure in a format perfect for AI consumption!
 
 ### 2. 🧠 Feed to AI
 Copy the contents of `dump.txt` and paste into your favorite AI chat (ChatGPT, Claude, etc.)
@@ -37,13 +37,19 @@ This rebuilds your project from the AI's response saved in `response.txt`!
 
 ### 🔍 **Code Analysis**
 ```
-"Analyze this entire React project for performance issues"
+"Analyze this entire Grasshopper project for performance issues"
 [paste dump.txt contents]
 ```
 
 ### 🛠️ **Refactoring**
 ```
-"Refactor this codebase to use TypeScript"
+"Refactor this codebase to use modern C# patterns"
+[paste dump.txt contents]
+```
+
+### 🎨 **Code Modernization**
+```
+"Update this project to use latest .NET practices and async/await patterns"
 [paste dump.txt contents]
 ```
 
@@ -67,45 +73,48 @@ The dumper automatically skips these common folders:
 - `venv`, `.venv` 🐍  
 - `__pycache__` 🐍
 - `dist`, `build` 🏗️
-- `.gpt` 🤖
+- `bin`, `obj` (C# build outputs)
+- `.git`, `.gpt`, `tools` 🤖
 
 ### 📄 Supported File Types
 Includes all common development files:
+- **C#**: `.cs`, `.csproj`, `.sln`
 - **Frontend**: `.js`, `.jsx`, `.ts`, `.tsx`, `.vue`, `.svelte`
 - **Styles**: `.css`, `.scss`, `.sass`, `.less`
 - **Config**: `.json`, `.yaml`, `.yml`, `.ini`, `.env`
 - **Docs**: `.md`, `.txt`, `.log`
+- **Python**: `.py`, `.ipynb`
 - **And many more!**
 
 ## 🔄 Workflow Example
 
 ```bash
 # 1. Dump your current project
-python .gpt/dump.py
+python tools/dump.py
 
 # 2. Open dump.txt and copy contents
-cat .gpt/dump.txt
+cat tools/dump.txt
 
 # 3. Paste into AI chat with your request
-# "Please add error handling to all API calls in this React app"
+# "Please modernize the C# code and add proper error handling"
 
 # 4. Save AI response to response.txt
-# (Copy AI's code output to .gpt/response.txt)
+# (Copy AI's code output to tools/response.txt)
 
 # 5. Reconstruct the improved project
-python .gpt/response.py
+python tools/response.py
 ```
 
 ## 📋 File Format
 
 ### Dump Format (`dump.txt`)
 ```
-<./src/App.jsx>
-import React from 'react'
+<./grasshopper-plugin/LiveCodingGH/Component.cs>
+using System;
 // ... file contents ...
 
-<./src/components/Button.jsx>  
-export default function Button() {
+<./mcp-server/src/tools/canvas.js>  
+export async function getCanvasState() {
 // ... file contents ...
 }
 
@@ -135,6 +144,49 @@ Same format! AI responses should maintain the `<./path/to/file>` structure for a
 - Use for rapid prototyping with AI assistance
 - Great for learning new patterns across codebases  
 - Perfect for migration and modernization projects
+- Excellent for code reviews and architecture analysis
+
+### 🤖 **AI-Specific Tips**
+
+**For ChatGPT:**
+- Break large dumps into smaller chunks if you hit token limits
+- Ask for step-by-step explanations of changes
+- Request test cases for modified code
+
+**For Claude:**
+- Use Claude's excellent code analysis capabilities
+- Ask for architecture improvements and patterns
+- Request performance optimizations
+
+**For Gemini:**
+- Use the included system prompt for consistent formatting
+- Great for multi-language projects
+- Ask for comprehensive refactoring suggestions
+
+## Integration with Monorepo
+
+Since this is part of a monorepo structure:
+
+### Dump Specific Components
+```bash
+# Dump only the C# plugin
+python dump.py --path ../grasshopper-plugin
+
+# Dump only the MCP server
+python dump.py --path ../mcp-server
+```
+
+### Component-Specific Analysis
+```
+"Analyze only the MCP server component for Node.js best practices"
+[paste component-specific dump]
+```
+
+### Cross-Component Refactoring
+```
+"Ensure consistent error handling patterns between the C# plugin and Node.js server"
+[paste full project dump]
+```
 
 ## 🛡️ Safety Notes
 
@@ -142,6 +194,33 @@ Same format! AI responses should maintain the `<./path/to/file>` structure for a
 - 🔍 Review AI changes before applying them
 - 🧪 Test thoroughly after reconstruction
 - 📁 Keep original files until you're satisfied with results
+- 🔒 Never include sensitive data (API keys, passwords) in dumps
+
+## Advanced Usage
+
+### Custom Dump Scripts
+
+Create specialized dumpers for specific use cases:
+
+```python
+# dump_only_interfaces.py
+# Only dump interface definitions and public APIs
+```
+
+### Automated Workflows
+
+```bash
+# Create a development workflow
+python dump.py && echo "Project dumped, ready for AI analysis"
+```
+
+### Integration with CI/CD
+
+Use these tools in automated workflows to:
+- Generate documentation
+- Analyze code quality
+- Suggest improvements
+- Create migration guides
 
 ---
 
