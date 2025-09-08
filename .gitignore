@@ -25,3 +25,4 @@ venv/
 Thumbs.db
 
 .gpt/*.txt
+.claude/
