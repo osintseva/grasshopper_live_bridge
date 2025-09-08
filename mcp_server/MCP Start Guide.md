@@ -79,6 +79,7 @@ claude mcp get grasshopper-bridge
 ```
 
 #### Step 3: Test in Claude Code
+Before you test it with Claude Code, stop Claude Code (Ctrl+C) and start Claude Code again.
 In Claude Code, use the `/mcp` command to check server status, then test with:
 - "Use the hello_world MCP tool"
 - "Get the current Grasshopper canvas state"
