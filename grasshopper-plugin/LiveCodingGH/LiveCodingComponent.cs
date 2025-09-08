@@ -90,9 +90,15 @@ namespace LiveCoding
             {
                 _server = new WebSocketServer(WS_PORT);
 #pragma warning disable CS0618
-                _server.AddWebSocketService("/live", () => new LiveCodingService(_queue)); // obsolete API is fine for POC
+                _server.AddWebSocketService("/live", () => {
+                    return new LiveCodingService(_queue, LogDebug);
+                }); // obsolete API is fine for POC
 #pragma warning restore CS0618
-                Task.Run(() => _server.Start());
+                
+                Task.Run(() => {
+                    _server.Start();
+                });
+                
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"WS started on ws://localhost:{WS_PORT}/live");
             }
             catch (Exception ex)
@@ -113,10 +119,13 @@ namespace LiveCoding
                         LastCommand = $"{msg.Action} @ {DateTime.Now:HH:mm:ss}";
                         LogDebug($"Processing message: {msg.Action}");
                         Execute(msg);
+                        LogDebug($"Message processing completed for: {msg.Action}");
                         ExpireSolution(true);
                     }
                     catch (Exception ex)
                     {
+                        LogDebug($"Message processing exception: {ex.GetType().Name} - {ex.Message}");
+                        LogDebug($"Stack trace: {ex.StackTrace}");
                         AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Command failed: {ex.Message}");
                     }
                 }
@@ -307,7 +316,7 @@ namespace LiveCoding
 
                 LogDebug($"Found {docObjects.Count} objects in document");
                 
-                string jsonResult = Newtonsoft.Json.JsonConvert.SerializeObject(definition, Newtonsoft.Json.Formatting.Indented);
+                string jsonResult = JsonConvert.SerializeObject(definition, Formatting.Indented);
                 LogDebug($"JSON serialized, length: {jsonResult.Length}");
                 
                 // Broadcast the canvas info via WebSocket
@@ -326,6 +335,7 @@ namespace LiveCoding
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Failed to get canvas info: {ex.Message}");
             }
         }
+
 
         private string GetDataPreviewString(IGH_Goo goo)
         {
@@ -365,13 +375,15 @@ namespace LiveCoding
             
             try
             {
-                // Create response as simple string format
+                // Parse JSON data back to object to avoid double-encoding
+                var dataObject = JsonConvert.DeserializeObject(jsonData);
+                
                 var responseDict = new Dictionary<string, object>
                 {
                     ["action"] = "get_canvas_info_response",
                     ["correlationId"] = correlationId ?? Guid.NewGuid().ToString(),
                     ["status"] = "success",
-                    ["data"] = jsonData
+                    ["data"] = dataObject
                 };
                 
                 string responseJson = JsonConvert.SerializeObject(responseDict);
@@ -677,35 +689,73 @@ namespace LiveCoding
     public class LiveCodingService : WebSocketBehavior
     {
         private readonly System.Collections.Concurrent.ConcurrentQueue<CommandMessage> _queue;
+        private readonly Action<string> _logger;
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, LiveCodingService> _sessions = 
             new System.Collections.Concurrent.ConcurrentDictionary<string, LiveCodingService>();
         
-        public LiveCodingService(System.Collections.Concurrent.ConcurrentQueue<CommandMessage> q) => _queue = q;
+        public LiveCodingService(System.Collections.Concurrent.ConcurrentQueue<CommandMessage> q, Action<string> logger = null)
+        {
+            _queue = q;
+            _logger = logger ?? ((msg) => { /* no-op if no logger provided */ }); // no-op if no logger provided
+        }
+
+        protected override void OnOpen()
+        {
+            base.OnOpen();
+        }
+
+        protected override void OnClose(CloseEventArgs e)
+        {
+            base.OnClose(e);
+        }
+
+        protected override void OnError(ErrorEventArgs e)
+        {
+            _logger($"WebSocket error: {e.Message}");
+            base.OnError(e);
+        }
 
         protected override void OnMessage(MessageEventArgs e)
         {
             try
             {
-                var msg = JsonConvert.DeserializeObject<CommandMessage>(e.Data) ?? new CommandMessage();
+                // Ultra simple - just get basic info and send response
+                var data = e.Data ?? "";
                 
-                // Store this session for potential responses
-                if (!string.IsNullOrEmpty(msg.CorrelationId))
+                // Simple string search instead of regex
+                var action = "unknown";
+                var correlationId = "default";
+                
+                if (data.Contains("ping")) action = "ping";
+                else if (data.Contains("create_slider")) action = "create_slider";
+                else if (data.Contains("get_canvas_info")) action = "get_canvas_info";
+                
+                // Try to find correlationId with simple string operations
+                var corrStart = data.IndexOf("\"correlationId\":\"");
+                if (corrStart >= 0)
                 {
-                    _sessions[msg.CorrelationId] = this;
+                    corrStart += 16; // length of "correlationId":"
+                    var corrEnd = data.IndexOf("\"", corrStart);
+                    if (corrEnd > corrStart)
+                    {
+                        correlationId = data.Substring(corrStart, corrEnd - corrStart);
+                    }
                 }
                 
+                // Create and queue message
+                var msg = new CommandMessage { Action = action, CorrelationId = correlationId };
+                _sessions[correlationId] = this;
                 _queue.Enqueue(msg);
-                var ack = new
-                {
-                    action = (msg.Action ?? "unknown") + "_response",
-                    correlationId = msg.CorrelationId,
-                    status = "queued"
-                };
-                Send(JsonConvert.SerializeObject(ack));
+                
+                // Send simple response
+                var response = "{\"action\":\"" + action + "_response\",\"correlationId\":\"" + correlationId + "\",\"status\":\"queued\"}";
+                Send(response);
+                
             }
             catch (Exception ex)
             {
-                Send(JsonConvert.SerializeObject(new { action = "error", message = ex.Message }));
+                var errorResponse = JsonConvert.SerializeObject(new { action = "error", message = ex.Message });
+                Send(errorResponse);
             }
         }
         
@@ -718,19 +768,29 @@ namespace LiveCoding
                     session.Send(message);
                     _sessions.TryRemove(correlationId, out _); // Clean up
                 }
-                catch
+                catch (Exception ex)
                 {
                     _sessions.TryRemove(correlationId, out _);
                 }
+            }
+            else
+            {
+                // No logger available in static context, but we can try to find any session to log
+                var anySession = _sessions.Values.FirstOrDefault();
             }
         }
     }
 
     public class CommandMessage
     {
-        [JsonProperty("action")] public string Action { get; set; }
-        [JsonProperty("correlationId")] public string CorrelationId { get; set; }
-        [JsonProperty("payload")] public Dictionary<string, object> Payload { get; set; }
+        [JsonProperty("action")]
+        public string Action { get; set; }
+        
+        [JsonProperty("correlationId")]
+        public string CorrelationId { get; set; }
+        
+        [JsonProperty("payload")]
+        public Dictionary<string, object> Payload { get; set; }
     }
 
     // ---------------------- Canvas Analysis Data Models ----------------------

@@ -114,7 +114,11 @@ function run() {
   ws.on('message', (data) => {
     try {
       const msg = JSON.parse(data.toString());
-      console.log('<<', msg);
+      if (msg.action === 'get_canvas_info_response' && msg.data) {
+        console.log('<<', JSON.stringify(msg, null, 2));
+      } else {
+        console.log('<<', msg);
+      }
     } catch {
       console.log('<<', data.toString());
     }

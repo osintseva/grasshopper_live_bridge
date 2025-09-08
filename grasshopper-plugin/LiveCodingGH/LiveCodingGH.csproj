@@ -8,8 +8,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="WebSocketSharp-netstandard" Version="1.0.1" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="WebSocketSharp" Version="1.0.3-rc11">
+      <Private>True</Private>
+    </PackageReference>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3">
+      <Private>True</Private>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
@@ -32,10 +36,12 @@
     <Reference Include="System.Drawing" />
   </ItemGroup>
 
-  <!-- Post-build: create .gha file -->
+  <!-- Post-build: create .gha file and copy dependencies -->
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <Copy SourceFiles="$(TargetPath)" DestinationFiles="$(TargetDir)$(AssemblyName).gha" />
+    <Copy SourceFiles="$(TargetDir)Newtonsoft.Json.dll" DestinationFiles="$(TargetDir)Newtonsoft.Json.dll" Condition="Exists('$(TargetDir)Newtonsoft.Json.dll')" />
     <Message Text="Created $(AssemblyName).gha in $(TargetDir)" Importance="high" />
+    <Message Text="Copied Newtonsoft.Json.dll to $(TargetDir)" Importance="high" Condition="Exists('$(TargetDir)Newtonsoft.Json.dll')" />
   </Target>
 
 </Project>
