@@ -38,9 +38,9 @@ class GrasshopperMCPServer {
       const ws = new WebSocket(this.GH_WS_URL);
 
       const timeout = setTimeout(() => {
-        reject(new Error('Timeout: Could not get a response from Grasshopper. Is the component on the canvas?'));
+        reject(new Error('Request timeout: get_canvas_info'));
         try { ws.close(); } catch {}
-      }, 10000);
+      }, 2000);
 
       ws.on('open', () => {
         console.error(`[MCP] Connection to Grasshopper established. Requesting ${action}...`);
@@ -55,33 +55,49 @@ class GrasshopperMCPServer {
       ws.on('message', (data) => {
         try {
           const response = JSON.parse(data.toString());
-          if (response.action === `${action}_response` && response.status === 'success') {
-            console.error(`[MCP] ${action} response received successfully.`);
-            clearTimeout(timeout);
-            ws.close();
-            
-            // Handle different response formats
-            if (response.data && typeof response.data === 'string') {
-              try {
-                resolve(JSON.parse(response.data));
-              } catch {
-                resolve(response.data);
+          console.error(`[MCP] Received message: ${JSON.stringify(response)}`);
+          
+          if (response.action === `${action}_response`) {
+            console.error(`[MCP] Response matches expected action: ${action}_response`);
+            if (response.status === 'success') {
+              console.error(`[MCP] ${action} SUCCESS response received!`);
+              clearTimeout(timeout);
+              ws.close();
+              
+              // Handle different response formats
+              if (response.data && typeof response.data === 'string') {
+                try {
+                  resolve(JSON.parse(response.data));
+                } catch {
+                  resolve(response.data);
+                }
+              } else {
+                resolve(response.data || response);
               }
+            } else if (response.status === 'queued') {
+              console.error(`[MCP] ${action} request QUEUED, continuing to wait...`);
+              // Continue waiting for the success response
+            } else if (response.status === 'error') {
+              console.error(`[MCP] ${action} response ERROR: ${response.message}`);
+              clearTimeout(timeout);
+              ws.close();
+              reject(new Error(`Grasshopper error: ${response.message || 'Unknown error'}`));
             } else {
-              resolve(response.data || response);
+              console.error(`[MCP] Unknown response status: ${response.status}`);
             }
-          } else if (response.status === 'error') {
-            reject(new Error(`Grasshopper error: ${response.message || 'Unknown error'}`));
+          } else {
+            console.error(`[MCP] Response action doesn't match. Expected: ${action}_response, Got: ${response.action}`);
           }
         } catch (err) {
+          console.error(`[MCP] Failed to parse message: ${err.message}`);
           reject(new Error(`Failed to parse response from Grasshopper: ${err.message}`));
         }
       });
 
       ws.on('error', (err) => {
-        console.error('[MCP] WebSocket error:', err.message);
+        console.error('[MCP] WebSocket error:', err);
         clearTimeout(timeout);
-        reject(new Error(`Failed to connect to Grasshopper WebSocket at ${this.GH_WS_URL}. Is Rhino/Grasshopper running?`));
+        reject(new Error(`Failed to connect to Grasshopper WebSocket at ${this.GH_WS_URL}. WebSocket error: ${err.message}. Is Rhino/Grasshopper running?`));
       });
 
       ws.on('close', () => {
@@ -91,7 +107,7 @@ class GrasshopperMCPServer {
   }
 
   setupToolHandlers() {
-    // List available tools
+    // List available tools (only those actually implemented in the C# server)
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
         tools: [
@@ -100,19 +116,13 @@ class GrasshopperMCPServer {
             description: "Get the current state of the Grasshopper canvas",
             inputSchema: {
               type: "object",
-              properties: {
-                includeSelection: {
-                  type: "boolean",
-                  description: "Whether to include selection information",
-                  default: false
-                }
-              },
+              properties: {},
               additionalProperties: false,
             },
           },
           {
-            name: "get_selection", 
-            description: "Get the current selection in Grasshopper",
+            name: "ping",
+            description: "Test connection to Grasshopper WebSocket server",
             inputSchema: {
               type: "object",
               properties: {},
@@ -120,11 +130,71 @@ class GrasshopperMCPServer {
             },
           },
           {
-            name: "generate_ai_overview",
-            description: "Generate an AI overview of the current Grasshopper definition",
+            name: "create_slider",
+            description: "Create a new number slider on the Grasshopper canvas",
             inputSchema: {
-              type: "object", 
-              properties: {},
+              type: "object",
+              properties: {
+                x: {
+                  type: "number",
+                  description: "X coordinate for the slider",
+                  default: 150
+                },
+                y: {
+                  type: "number", 
+                  description: "Y coordinate for the slider",
+                  default: 150
+                },
+                nickname: {
+                  type: "string",
+                  description: "Display name for the slider",
+                  default: "From MCP"
+                }
+              },
+              additionalProperties: false,
+            },
+          },
+          {
+            name: "create_python_script",
+            description: "Create a new Python script component on the Grasshopper canvas",
+            inputSchema: {
+              type: "object",
+              properties: {
+                x: {
+                  type: "number",
+                  description: "X coordinate for the component",
+                  default: 260
+                },
+                y: {
+                  type: "number",
+                  description: "Y coordinate for the component", 
+                  default: 160
+                },
+                code: {
+                  type: "string",
+                  description: "Python code for the script",
+                  default: "import datetime as _dt\nA = 'Python ready @ ' + _dt.datetime.now().strftime('%H:%M:%S')"
+                }
+              },
+              additionalProperties: false,
+            },
+          },
+          {
+            name: "update_script",
+            description: "Update the code in an existing script component",
+            inputSchema: {
+              type: "object",
+              properties: {
+                componentId: {
+                  type: "string",
+                  description: "GUID of the component to update"
+                },
+                code: {
+                  type: "string",
+                  description: "New Python code for the script"
+                }
+              },
+              required: ["componentId", "code"],
               additionalProperties: false,
             },
           },
@@ -156,11 +226,17 @@ class GrasshopperMCPServer {
           case "get_canvas_state":
             return await this.handleGetCanvasState(args || {});
           
-          case "get_selection":
-            return await this.handleGetSelection(args || {});
+          case "ping":
+            return await this.handlePing(args || {});
           
-          case "generate_ai_overview":
-            return await this.handleGenerateAIOverview(args || {});
+          case "create_slider":
+            return await this.handleCreateSlider(args || {});
+          
+          case "create_python_script":
+            return await this.handleCreatePythonScript(args || {});
+          
+          case "update_script":
+            return await this.handleUpdateScript(args || {});
           
           case "hello_world":
             return await this.handleHelloWorld(args || {});
@@ -182,9 +258,8 @@ class GrasshopperMCPServer {
 
   async handleGetCanvasState(args) {
     try {
-      const canvasData = await this.connectToGrasshopper('get_canvas_info', {
-        includeSelection: args.includeSelection || false
-      });
+      // Use empty payload to match what the C# server expects
+      const canvasData = await this.connectToGrasshopper('get_canvas_info', {});
       
       return {
         content: [
@@ -199,64 +274,95 @@ class GrasshopperMCPServer {
     }
   }
 
-  async handleGetSelection(args) {
+  async handlePing(args) {
     try {
-      const selectionData = await this.connectToGrasshopper('get_selection');
+      const result = await this.connectToGrasshopper('ping', { t: Date.now() });
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Ping successful: ${JSON.stringify(result, null, 2)}`,
+          },
+        ],
+      };
+    } catch (error) {
+      throw new McpError(ErrorCode.InternalError, `Ping failed: ${error.message}`);
+    }
+  }
+
+  async handleCreateSlider(args) {
+    try {
+      const payload = {
+        x: args.x || 150,
+        y: args.y || 150,
+        nickname: args.nickname || 'From MCP'
+      };
+      
+      const result = await this.connectToGrasshopper('create_slider', payload);
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Slider created successfully: ${JSON.stringify(result, null, 2)}`,
+          },
+        ],
+      };
+    } catch (error) {
+      throw new McpError(ErrorCode.InternalError, `Failed to create slider: ${error.message}`);
+    }
+  }
+
+  async handleCreatePythonScript(args) {
+    try {
+      const payload = {
+        x: args.x || 260,
+        y: args.y || 160,
+        code: args.code || "import datetime as _dt\nA = 'Python ready @ ' + _dt.datetime.now().strftime('%H:%M:%S')"
+      };
+      
+      const result = await this.connectToGrasshopper('create_python_script', payload);
       
       return {
         content: [
           {
             type: "text", 
-            text: JSON.stringify(selectionData, null, 2),
+            text: `Python script created successfully: ${JSON.stringify(result, null, 2)}`,
           },
         ],
       };
     } catch (error) {
-      throw new McpError(ErrorCode.InternalError, `Failed to get selection: ${error.message}`);
+      throw new McpError(ErrorCode.InternalError, `Failed to create Python script: ${error.message}`);
     }
   }
 
-  async handleGenerateAIOverview(args) {
+  async handleUpdateScript(args) {
     try {
-      // First get the canvas data
-      const canvasData = await this.connectToGrasshopper('get_canvas_info');
+      if (!args.componentId || !args.code) {
+        throw new Error("Both componentId and code are required");
+      }
       
-      // Generate overview (using the same logic as your HTTP server)
-      const componentCount = canvasData.Components ? canvasData.Components.length : 0;
-      const componentNames = canvasData.Components ? 
-        canvasData.Components.map(c => `\`${c.NickName}\` (${c.Name})`).join(', ') : 
-        'No components found';
-
-      const markdownResponse = `# Grasshopper Definition Overview
-
-This is an **AI-generated summary** of your Grasshopper canvas.
-
-## Canvas Statistics
-- **Total Components**: ${componentCount}
-- **Component List**: ${componentNames}
-
-## Technical Description
-The definition appears to be a ${componentCount > 5 ? 'complex' : 'simple'} setup. Data flows from source components (like sliders or panels) through various processing components to produce a final output.
-
-## Canvas Data
-\`\`\`json
-${JSON.stringify(canvasData, null, 2)}
-\`\`\`
-
-*This overview is generated by the MCP server for Grasshopper integration.*`;
-
+      const payload = {
+        componentId: args.componentId,
+        code: args.code
+      };
+      
+      const result = await this.connectToGrasshopper('update_script', payload);
+      
       return {
         content: [
           {
             type: "text",
-            text: markdownResponse,
+            text: `Script updated successfully: ${JSON.stringify(result, null, 2)}`,
           },
         ],
       };
     } catch (error) {
-      throw new McpError(ErrorCode.InternalError, `Failed to generate AI overview: ${error.message}`);
+      throw new McpError(ErrorCode.InternalError, `Failed to update script: ${error.message}`);
     }
   }
+
 
   async handleHelloWorld(args) {
     const name = args.name || 'World';

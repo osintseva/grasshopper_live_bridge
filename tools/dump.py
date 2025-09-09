@@ -17,6 +17,7 @@ exclude_folders = [
     "obj",
     "dist",
     ".git",
+    "tools",
 ]
 
 # Allowed file extensions
@@ -36,7 +37,7 @@ allowed_extensions = (
     ".ini",
     ".java",
     ".js",
-    ".json",
+    ".json1",
     ".jsonl",
     ".jsp",
     ".jspx",
@@ -99,7 +100,7 @@ def generate_tree(directory, prefix=""):
 # directory_tree = generate_tree("./compute.rhino3d/src")
 
 # Write the tree structure and filtered list of objects to 'dump.txt'
-with open("./.gpt/dump.txt", "w", encoding="utf-8") as f:
+with open("./tools/dump.txt", "w", encoding="utf-8") as f:
     # Write the directory tree at the beginning
     # f.write("&&& DIRECTORY TREE &&&\n\n")
     # f.write("\n".join(directory_tree) + "\n\n")
@@ -123,7 +124,9 @@ with open("./.gpt/dump.txt", "w", encoding="utf-8") as f:
                     if obj.endswith(allowed_extensions):
                         content = o.read()
                         if len(content) > 50000:
-                            content = content[:50000] + "\n................................"
+                            content = (
+                                content[:50000] + "\n................................"
+                            )
                     else:
                         content = o.read()[:20] + "\n................................"
                     f.write("<" + obj + ">\n" + content + "\n\n")

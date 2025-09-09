@@ -53,13 +53,13 @@ namespace LiveCoding
 
         private string LastCommand { get; set; } = "—";
         private readonly List<string> DebugLog = new List<string>();
-        
+
         private void LogDebug(string message)
         {
             var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
             var logEntry = $"[{timestamp}] {message}";
             DebugLog.Add(logEntry);
-            
+
             // Keep only last 20 entries
             if (DebugLog.Count > 20)
                 DebugLog.RemoveAt(0);
@@ -90,15 +90,17 @@ namespace LiveCoding
             {
                 _server = new WebSocketServer(WS_PORT);
 #pragma warning disable CS0618
-                _server.AddWebSocketService("/live", () => {
+                _server.AddWebSocketService("/live", () =>
+                {
                     return new LiveCodingService(_queue, LogDebug);
                 }); // obsolete API is fine for POC
 #pragma warning restore CS0618
-                
-                Task.Run(() => {
+
+                Task.Run(() =>
+                {
                     _server.Start();
                 });
-                
+
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"WS started on ws://localhost:{WS_PORT}/live");
             }
             catch (Exception ex)
@@ -140,8 +142,8 @@ namespace LiveCoding
         {
             var doc = Grasshopper.Instances.ActiveCanvas?.Document;
             LogDebug($"Execute: ActiveCanvas null? {Grasshopper.Instances.ActiveCanvas == null}, Document null? {doc == null}");
-            
-            if (doc == null) 
+
+            if (doc == null)
             {
                 LogDebug("No active Grasshopper document - command ignored");
                 return;
@@ -191,7 +193,7 @@ namespace LiveCoding
             BindingFlags.FlattenHierarchy | BindingFlags.IgnoreCase;
 
         // ---------------------- Canvas Analysis ----------------------
-        
+
         private const int PREVIEW_CHAR_LIMIT = 20;
         private const int FULL_DATA_CHAR_LIMIT = 10000;
 
@@ -205,7 +207,7 @@ namespace LiveCoding
                     LogDebug("No active Grasshopper document found");
                     return;
                 }
-                
+
                 var definition = new CompactGhDefinition();
                 var docObjects = doc.Objects.ToList();
                 var guidToIndexMap = docObjects.Select((obj, i) => new { obj.InstanceGuid, i }).ToDictionary(x => x.InstanceGuid, x => x.i);
@@ -221,7 +223,7 @@ namespace LiveCoding
                         myComponent.NickName = ghComponent.NickName;
                         myComponent.Description = ghComponent.Description;
                         myComponent.IsComponent = true;
-                        
+
                         foreach (var inputParam in ghComponent.Params.Input)
                         {
                             var connections = new List<int[]>();
@@ -231,14 +233,15 @@ namespace LiveCoding
                                 if (sourceOwnerObj != null && guidToIndexMap.TryGetValue(sourceOwnerObj.InstanceGuid, out int sourceId))
                                 {
                                     int sourceParamIndex = (sourceOwnerObj is IGH_Component sourceComp) ? sourceComp.Params.Output.IndexOf(source) : 0;
-                                    if(sourceParamIndex > -1) connections.Add(new int[] { sourceId, sourceParamIndex });
+                                    if (sourceParamIndex > -1) connections.Add(new int[] { sourceId, sourceParamIndex });
                                 }
                             }
                             myComponent.Inputs.Add(new GhInputParameter { Name = inputParam.Name, TypeName = inputParam.TypeName, Connections = connections });
                         }
 
                         bool isSourceComponent = !ghComponent.Params.Input.Any(p => p.Sources.Any());
-                        myComponent.Outputs = ghComponent.Params.Output.Select(p => {
+                        myComponent.Outputs = ghComponent.Params.Output.Select(p =>
+                        {
                             bool isUnconnectedOutput = p.Recipients.Count == 0;
                             bool showFullData = isSourceComponent || isUnconnectedOutput;
 
@@ -299,13 +302,13 @@ namespace LiveCoding
                         if (ghParam.Sources.Any())
                         {
                             var connections = new List<int[]>();
-                            foreach(var source in ghParam.Sources)
+                            foreach (var source in ghParam.Sources)
                             {
                                 var sourceOwnerObj = source.Attributes.GetTopLevel.DocObject;
                                 if (sourceOwnerObj != null && guidToIndexMap.TryGetValue(sourceOwnerObj.InstanceGuid, out int sourceId))
                                 {
                                     int sourceParamIndex = (sourceOwnerObj is IGH_Component sourceComp) ? sourceComp.Params.Output.IndexOf(source) : 0;
-                                    if(sourceParamIndex > -1) connections.Add(new int[] { sourceId, sourceParamIndex });
+                                    if (sourceParamIndex > -1) connections.Add(new int[] { sourceId, sourceParamIndex });
                                 }
                             }
                             myComponent.Inputs.Add(new GhInputParameter { Name = "Input", TypeName = ghParam.TypeName, Connections = connections });
@@ -315,10 +318,38 @@ namespace LiveCoding
                 }
 
                 LogDebug($"Found {docObjects.Count} objects in document");
-                
+
                 string jsonResult = JsonConvert.SerializeObject(definition, Formatting.Indented);
                 LogDebug($"JSON serialized, length: {jsonResult.Length}");
-                
+
+                // If data is too large, create a summary instead
+                const int MAX_SAFE_SIZE = 50000; // 50KB safe limit
+                if (jsonResult.Length > MAX_SAFE_SIZE)
+                {
+                    LogDebug($"Canvas data too large ({jsonResult.Length} chars), creating summary");
+
+                    var summary = new
+                    {
+                        Summary = $"Canvas has {docObjects.Count} objects (data too large for full transmission)",
+                        ComponentCount = docObjects.Count,
+                        Components = definition.Components.Take(10).Select(c => new
+                        {
+                            c.Id,
+                            c.Name,
+                            c.NickName,
+                            InputCount = c.Inputs.Count,
+                            OutputCount = c.Outputs.Count,
+                            c.IsComponent
+                        }).ToList(),
+                        Message = definition.Components.Count > 10 ?
+                            $"Showing first 10 of {definition.Components.Count} components. Use a simpler canvas for full data." :
+                            "Complete component list shown."
+                    };
+
+                    jsonResult = JsonConvert.SerializeObject(summary, Formatting.Indented);
+                    LogDebug($"Summary created, length: {jsonResult.Length}");
+                }
+
                 // Broadcast the canvas info via WebSocket
                 try
                 {
@@ -372,12 +403,12 @@ namespace LiveCoding
         private void BroadcastCanvasInfo(string jsonData, string correlationId)
         {
             LogDebug($"BroadcastCanvasInfo called. CorrelationId: {correlationId}");
-            
+
             try
             {
                 // Parse JSON data back to object to avoid double-encoding
                 var dataObject = JsonConvert.DeserializeObject(jsonData);
-                
+
                 var responseDict = new Dictionary<string, object>
                 {
                     ["action"] = "get_canvas_info_response",
@@ -385,10 +416,10 @@ namespace LiveCoding
                     ["status"] = "success",
                     ["data"] = dataObject
                 };
-                
+
                 string responseJson = JsonConvert.SerializeObject(responseDict);
                 LogDebug($"Response created, length: {responseJson.Length}");
-                
+
                 if (!string.IsNullOrEmpty(correlationId))
                 {
                     // Send directly to the requesting session
@@ -690,9 +721,9 @@ namespace LiveCoding
     {
         private readonly System.Collections.Concurrent.ConcurrentQueue<CommandMessage> _queue;
         private readonly Action<string> _logger;
-        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, LiveCodingService> _sessions = 
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, LiveCodingService> _sessions =
             new System.Collections.Concurrent.ConcurrentDictionary<string, LiveCodingService>();
-        
+
         public LiveCodingService(System.Collections.Concurrent.ConcurrentQueue<CommandMessage> q, Action<string> logger = null)
         {
             _queue = q;
@@ -719,64 +750,129 @@ namespace LiveCoding
         {
             try
             {
-                // Ultra simple - just get basic info and send response
                 var data = e.Data ?? "";
-                
-                // Simple string search instead of regex
-                var action = "unknown";
-                var correlationId = "default";
-                
-                if (data.Contains("ping")) action = "ping";
-                else if (data.Contains("create_slider")) action = "create_slider";
-                else if (data.Contains("get_canvas_info")) action = "get_canvas_info";
-                
-                // Try to find correlationId with simple string operations
-                var corrStart = data.IndexOf("\"correlationId\":\"");
-                if (corrStart >= 0)
+                _logger($"Received raw message: {data}");
+
+                // Proper JSON deserialization instead of fragile string parsing
+                CommandMessage msg;
+                try
                 {
-                    corrStart += 16; // length of "correlationId":"
-                    var corrEnd = data.IndexOf("\"", corrStart);
-                    if (corrEnd > corrStart)
+                    msg = JsonConvert.DeserializeObject<CommandMessage>(data);
+                    if (msg == null)
                     {
-                        correlationId = data.Substring(corrStart, corrEnd - corrStart);
+                        _logger("Failed to deserialize message - result was null");
+                        return;
                     }
                 }
-                
-                // Create and queue message
-                var msg = new CommandMessage { Action = action, CorrelationId = correlationId };
-                _sessions[correlationId] = this;
+                catch (JsonException ex)
+                {
+                    _logger($"JSON parsing failed: {ex.Message}");
+                    var errorResponse = JsonConvert.SerializeObject(new { action = "error", message = "Invalid JSON format" });
+                    Send(errorResponse);
+                    return;
+                }
+
+                // Validate required fields
+                if (string.IsNullOrEmpty(msg.Action))
+                {
+                    _logger("Action field is missing or empty");
+                    var errorResponse = JsonConvert.SerializeObject(new { action = "error", message = "Action field is required" });
+                    Send(errorResponse);
+                    return;
+                }
+
+                if (string.IsNullOrEmpty(msg.CorrelationId))
+                {
+                    _logger("CorrelationId field is missing, generating default");
+                    msg.CorrelationId = Guid.NewGuid().ToString();
+                }
+
+                _logger($"Parsed message - Action: {msg.Action}, CorrelationId: {msg.CorrelationId}");
+
+                // Register session for responses
+                _sessions[msg.CorrelationId] = this;
+
+                // Queue the message for processing
                 _queue.Enqueue(msg);
-                
-                // Send simple response
-                var response = "{\"action\":\"" + action + "_response\",\"correlationId\":\"" + correlationId + "\",\"status\":\"queued\"}";
+
+                // Send acknowledgment response
+                var response = JsonConvert.SerializeObject(new
+                {
+                    action = msg.Action + "_response",
+                    correlationId = msg.CorrelationId,
+                    status = "queued"
+                });
                 Send(response);
-                
+                _logger($"Sent queued response for {msg.Action}");
+
             }
             catch (Exception ex)
             {
+                _logger($"OnMessage exception: {ex.Message}");
                 var errorResponse = JsonConvert.SerializeObject(new { action = "error", message = ex.Message });
                 Send(errorResponse);
             }
         }
-        
+
         public static void SendToSession(string correlationId, string message)
         {
             if (_sessions.TryGetValue(correlationId, out var session))
             {
                 try
                 {
-                    session.Send(message);
+                    // Check message size and truncate if too large
+                    const int MAX_MESSAGE_SIZE = 100000; // 100KB limit
+                    string messageToSend = message;
+
+                    if (message.Length > MAX_MESSAGE_SIZE)
+                    {
+                        // Create a truncated response
+                        var errorResponse = JsonConvert.SerializeObject(new
+                        {
+                            action = "get_canvas_info_response",
+                            correlationId = correlationId,
+                            status = "error",
+                            message = $"Response too large ({message.Length} chars). Canvas has too many components to transmit via WebSocket."
+                        });
+                        messageToSend = errorResponse;
+                        session._logger?.Invoke($"Message truncated due to size: {message.Length} chars");
+                    }
+
+                    session._logger?.Invoke($"Attempting to send message of size: {messageToSend.Length}");
+                    session.Send(messageToSend);
+                    session._logger?.Invoke($"Message sent successfully");
                     _sessions.TryRemove(correlationId, out _); // Clean up
                 }
                 catch (Exception ex)
                 {
+                    session._logger?.Invoke($"SendToSession failed: {ex.GetType().Name} - {ex.Message}");
+
+                    // Try to send error response
+                    try
+                    {
+                        var errorResponse = JsonConvert.SerializeObject(new
+                        {
+                            action = "get_canvas_info_response",
+                            correlationId = correlationId,
+                            status = "error",
+                            message = $"WebSocket send failed: {ex.Message}"
+                        });
+                        session.Send(errorResponse);
+                        session._logger?.Invoke($"Error response sent successfully");
+                    }
+                    catch (Exception ex2)
+                    {
+                        session._logger?.Invoke($"Failed to send error response: {ex2.Message}");
+                    }
+
                     _sessions.TryRemove(correlationId, out _);
                 }
             }
             else
             {
-                // No logger available in static context, but we can try to find any session to log
+                // No session found - log this
                 var anySession = _sessions.Values.FirstOrDefault();
+                anySession?._logger?.Invoke($"SendToSession: No session found for correlationId: {correlationId}");
             }
         }
     }
@@ -785,33 +881,33 @@ namespace LiveCoding
     {
         [JsonProperty("action")]
         public string Action { get; set; }
-        
+
         [JsonProperty("correlationId")]
         public string CorrelationId { get; set; }
-        
+
         [JsonProperty("payload")]
         public Dictionary<string, object> Payload { get; set; }
     }
 
     // ---------------------- Canvas Analysis Data Models ----------------------
 
-    public class CompactGhDefinition 
-    { 
-        public List<CompactGhComponent> Components { get; set; } = new List<CompactGhComponent>(); 
+    public class CompactGhDefinition
+    {
+        public List<CompactGhComponent> Components { get; set; } = new List<CompactGhComponent>();
     }
 
-    public class GhInputParameter 
-    { 
-        public string Name { get; set; } 
-        public string TypeName { get; set; } 
-        public List<int[]> Connections { get; set; } = new List<int[]>(); 
+    public class GhInputParameter
+    {
+        public string Name { get; set; }
+        public string TypeName { get; set; }
+        public List<int[]> Connections { get; set; } = new List<int[]>();
     }
 
-    public class GhOutputParameter 
-    { 
-        public string Name { get; set; } 
-        public string TypeName { get; set; } 
-        public string DataPreview { get; set; } 
+    public class GhOutputParameter
+    {
+        public string Name { get; set; }
+        public string TypeName { get; set; }
+        public string DataPreview { get; set; }
     }
 
     public class CompactGhComponent

@@ -46,6 +46,8 @@ claude mcp add grasshopper-bridge node "$(pwd)/hybrid-server.js"
 cd scripts
 npm install
 node test-connection.js ping
+node test-connection.js get_canvas_info --timeout=5000
+node test-connection.js get_selection
 ```
 
 ## Features ✨

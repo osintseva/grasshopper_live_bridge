@@ -24,5 +24,5 @@ venv/
 .DS_Store
 Thumbs.db
 
-.gpt/*.txt
+tools/*.txt
 .claude/
