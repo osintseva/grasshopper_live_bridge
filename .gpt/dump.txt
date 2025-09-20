@@ -1,0 +1,3172 @@
+<./.gitignore>
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+.gpt/*.txt
+
+
+<./eslint.config.js>
+import js from '@eslint/js'
+import globals from 'globals'
+import reactHooks from 'eslint-plugin-react-hooks'
+import reactRefresh from 'eslint-plugin-react-refresh'
+import { defineConfig, globalIgnores } from 'eslint/config'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{js,jsx}'],
+    extends: [
+      js.configs.recommended,
+      reactHooks.configs['recommended-latest'],
+      reactRefresh.configs.vite,
+    ],
+    languageOptions: {
+      ecmaVersion: 2020,
+      globals: globals.browser,
+      parserOptions: {
+        ecmaVersion: 'latest',
+        ecmaFeatures: { jsx: true },
+        sourceType: 'module',
+      },
+    },
+    rules: {
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+    },
+  },
+])
+
+
+<./index.html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ScriptBridgeJS</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+
+
+<./package-lock.json>
+{
+  "name": "grassho
+................................
+
+<./package.json>
+{
+  "name": "grassho
+................................
+
+<./README.md>
+# ScriptBridgeJS 🦗➡️📜➡️💻
+
+Welcome to the ScriptBridgeJS! This project is the interactive heart of a sophisticated pipeline designed to bridge the gap between visual prototyping in Grasshopper and modern web development with Three.js. It allows you to instantly test, visualize, and interact with JavaScript code that has been automatically converted from Grasshopper definitions by AI agents.
+
+**The Vision:** Empower designers and developers to leverage the rapid, visual prototyping capabilities of Grasshopper to create an extensive library of production-ready, interactive JavaScript modules for 3D web applications.
+
+---
+
+## 💡 The Core Concept & Workflow
+
+The entire project revolves around an AI-driven pipeline that transforms a visual Grasshopper script into a tangible, interactive JavaScript function. This process is designed to distill the *intent* of the script, rather than performing a direct, low-level translation of Grasshopper's data trees. The workflow is broken down into a few key stages:
+
+1.  **Grasshopper to `.ghx`:** The process starts with a Grasshopper script saved in the XML format (`.ghx`).
+2.  **`.ghx` to Compact JSON (`ghx2json_converter/`):** The Python script in the `ghx2json_converter` directory is used to parse the `.ghx` file. It converts the complex XML structure into a clean, indexed, and bidirectional JSON graph. This format is highly optimized for an LLM to understand the components and their connections.
+3.  **JSON to Specification (LLM Agent 1):** The generated JSON graph, along with component documentation (scraped using scripts from `gh_docs_generation`), is fed to a Large Language Model (LLM). This agent's task is to produce a structured technical specification document that describes the script's purpose, its key inputs (like sliders and points), and its final outputs in a human-readable format.
+4.  **Specification to JavaScript (LLM Agent 2):** A second LLM agent takes this specification and, guided by the master prompt found in `prompts/Grasshopper to JavaScript Conversion.md`, generates a clean, self-contained JavaScript function. This function uses Three.js to replicate the geometric logic of the original Grasshopper script.
+5.  **Visualization & Testing (This App!):** The generated JavaScript code is pasted directly into this ScriptBridgeJS application. The app instantly parses the code's JSDoc comments, generates interactive controls for its parameters, and renders the 3D geometry, providing immediate visual feedback.
+6.  **Library Generation (Future Goal):** Once tested and validated, these JavaScript functions can be saved to a library, creating a powerful repository of reusable geometric tools for larger web applications, such as an urban design simulator.
+
+---
+
+## ✨ Key Features of the ScriptBridgeJS
+
+This application is built to provide a seamless and interactive testing experience for the generated JavaScript code.
+
+* **✂️ Paste & Run:** A simple code editor allows you to paste your generated JavaScript function and see the results instantly. Helper buttons for pasting from the clipboard and clearing the editor streamline the process.
+* **🤖 Automatic UI Generation:** The app intelligently reads JSDoc comments (`/** ... */`) in your code to automatically generate a rich user interface using **Leva**. Sliders, color pickers, toggles, and vector inputs are created on the fly.
+* **🌐 Interactive 3D Viewport:** A high-performance 3D canvas built with **React Three Fiber** renders your geometry. It includes default lighting, a ground grid for reference, and intuitive orbit controls for easy navigation.
+* **🕹️ Real-time Parameter Control:** All inputs generated in the Leva panel are interactive. Drag a slider or change a color, and watch the 3D geometry update in real-time.
+* **📍 3D Gizmo Controls:** For `Point` or `Polyline` inputs marked as interactive in the JSDocs, the app renders 3D transform gizmos directly in the scene, allowing for intuitive, visual manipulation of geometric inputs.
+
+---
+
+## 📂 Project Structure & Repository Contents
+
+This repository contains not only the ScriptBridgeJS application itself but also the core scripts and prompts that power the entire conversion pipeline.
+
+* **/src/**: The source code for the React-based ScriptBridgeJS application. This is the user-facing tool for testing the generated JavaScript. Its internal architecture is detailed in the "Tech Stack" section below.
+* **/ghx2json_converter/**: Contains the crucial `ghx2json.py` Python script. Its purpose is to perform the first step of the pipeline: converting the verbose `.ghx` XML file from Grasshopper into a compact, LLM-friendly JSON representation of the component graph.
+* **/prompts/**: This directory contains the "brains" of the AI-driven conversion process. These are meticulously crafted markdown files that serve as instructions for the LLM agents. They define the persona, rules, and output format required to translate a technical specification into a valid, JSDoc-annotated JavaScript function.
+* **/js_examples/**: A collection of sample JavaScript files that have been generated by the pipeline. You can copy and paste the content of these files into the ScriptBridgeJS to see how different inputs and outputs are handled.
+* **/gh_docs_generation/**: Contains resources used by the first LLM agent to understand the function of various Grasshopper components. This context is essential for creating an accurate technical specification.
+
+---
+
+## 📜 The JSDoc Annotation Standard
+
+To make the generated JavaScript code machine-readable by the ScriptBridgeJS, we use a strict JSDoc format. This is the secret sauce that allows the app to understand your function's inputs and outputs automatically.
+
+### **Inputs (`@param`)**
+
+Parameters are defined using standard `@param` tags, augmented with special metadata in brackets `[...]`. You can group related inputs in the UI using an `@folder` tag.
+
+**Example: A Number Slider**
+```javascript
+/**
+ * @folder Dimensions
+ * @param {number} radius - The radius of the circle. [default=10, min=1, max=50, step=0.1]
+ */
+````
+
+**Example: An Interactive Point with a 3D Gizmo**
+
+```javascript
+/**
+ * @folder Geometry
+ * @param {number[]} startPoint - The starting point of the line. [default=[0, 0, 0], interactive=true]
+ */
+```
+
+### **Outputs (`@returns`)**
+
+Each piece of geometry the function returns is described with an `@returns` tag. This tag specifies the object's name for the UI, its visual style, and its color.
+
+**Example: A Styled Mesh and a Dashed Line**
+
+```javascript
+/**
+ * @returns {{type: THREE.Mesh, name: "Lofted Surface", style: "filledThick", color: "Ocean"}}
+ * @returns {{type: THREE.Line, name: "Profile Viz", style: "wireframe", color: "Sunset", lineStyle: "dashed"}}
+ */
+function createGeometry(...) {
+  // ... script logic
+  return {
+    "Lofted Surface": myMeshObject,
+    "Profile Viz": myLineObject
+  };
+}
+```
+
+-----
+
+## 🎨 Styling System
+
+The JSDoc `@returns` tag references a predefined set of visual styles to ensure a consistent and modern aesthetic.
+
+### **Color Palette**
+
+A vibrant palette of 8 unique colors, each with a base, light, and dark variant. Use the capitalized name (e.g., `"Ocean"`, `"Sunset"`) in your JSDocs.
+
+| Name   | Color                               | Name   | Color                               |
+| :----- | :---------------------------------- | :----- | :---------------------------------- |
+| Ocean  | \<span style="color:\#0096C7"\>■\</span\> | Sunset | \<span style="color:\#F77F00"\>■\</span\> |
+| Forest | \<span style="color:\#52B788"\>■\</span\> | Grape  | \<span style="color:\#8338EC"\>■\</span\> |
+| Ruby   | \<span style="color:\#D62828"\>■\</span\> | Lemon  | \<span style="color:\#FCBF49"\>■\</span\> |
+| Sky    | \<span style="color:\#4CC9F0"\>■\</span\> | Blush  | \<span style="color:\#FF7096"\>■\</span\> |
+
+### **Geometry & Line Styles**
+
+Define the material and appearance of your meshes and curves.
+
+| Geometry Style     | Description                                         |
+| :----------------- | :-------------------------------------------------- |
+| `filledThick`      | Solid, opaque mesh with a prominent outline.        |
+| `wireframe`        | Edges only, no faces.                               |
+| `transparentThick` | Semi-transparent mesh with a prominent outline.     |
+| `transparentThin`  | Semi-transparent mesh with a subtle outline.        |
+
+| Line Style | Description                           |
+| :--------- | :------------------------------------ |
+| `solid`    | A continuous line.                    |
+| `dashed`   | A line with repeating dashes and gaps. |
+| `dotted`   | A line composed of small dots.        |
+
+-----
+
+## 💻 Tech Stack & Architecture
+
+The ScriptBridgeJS is built with a modern, performant, and modular architecture.
+
+### **Core Technologies**
+
+  * **React (with Vite):** The foundation of our application, providing a fast, component-based UI framework and a blazing-fast development environment.
+  * **Three.js:** The definitive library for 3D graphics in the browser. We use it for all rendering and geometry calculations.
+  * **@react-three/fiber:** A React renderer for Three.js. It allows us to build our 3D scene declaratively with reusable components.
+  * **@react-three/drei:** A collection of essential helpers for React Three Fiber, providing ready-to-use components for controls (`OrbitControls`) and gizmos (`TransformControls`).
+  * **Leva:** A powerful GUI for React. We use it to automatically generate the parameter control panel based on the parsed JSDoc comments.
+  * **Acorn:** A lightweight and fast JavaScript parser. It's the engine that reads the user's code as a string and converts it into an Abstract Syntax Tree (AST), which we then traverse to find the JSDoc comments and function body.
+
+### **Application Architecture**
+
+  * **`App.jsx` (The Conductor):** The main component that orchestrates the entire application, managing the state of the code string, the parsed script, and any errors.
+  * **`/lib/parser.js` (The Brains):** This is the most critical piece of the application's logic. It uses Acorn to generate an AST and then traverses this tree to meticulously extract JSDoc tags and their metadata, returning a structured JSON object.
+  * **`/components/` (The Building Blocks):** A collection of React components responsible for the UI, including the `CodeEditor`, the `GeometryRenderer` that executes the user's function and renders the output, and the `GizmoController` for interactive 3D inputs.
+  * **`/lib/materials.js` (The Stylist):** This utility contains the logic for applying the predefined visual styles from the JSDoc metadata to the Three.js geometry.
+
+-----
+
+## 🚀 Getting Started
+
+To run the ScriptBridgeJS on your local machine, follow these simple steps:
+
+1.  **Clone the repository:**
+
+    ```bash
+    git clone <repository-url>
+    ```
+
+2.  **Install dependencies:**
+
+    ```bash
+    npm install
+    ```
+
+3.  **Run the development server:**
+
+    ```bash
+    npm run dev
+    ```
+
+The application will now be running, typically at `http://localhost:5173`. You can start by pasting code from the `/js_examples/` directory to see the ScriptBridgeJS in action\!
+
+
+
+<./vite.config.js>
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [react()],
+  base: '/ScriptBridgeJS/'
+})
+
+
+<./gh2json_converter\dump_0.cs>
+/*
+ * HOW TO USE THI
+................................
+
+<./gh2json_converter\dump_1.cs>
+/*
+ * HOW TO USE THI
+................................
+
+<./gh2json_converter\dump_2.cs>
+/*
+ * HOW TO USE THI
+................................
+
+<./gh2json_converter\dump_3.cs>
+/*
+ * HOW TO USE THI
+................................
+
+<./gh2json_converter\dump_4.cs>
+/*
+ * HOW TO USE THI
+................................
+
+<./gh2json_converter\dump_5.cs>
+/*
+ * HOW TO USE THI
+................................
+
+<./gh2json_converter\dump_6.cs>
+/*
+ * HOW TO USE THI
+................................
+
+&&& FILE: ./gh2json_converter\furniteter_plus_dump.gh
+&&& ERROR: Could not read file: 'utf-8' codec can't decode byte 0xd4 in position 0: invalid continuation byte
+
+<./gh2json_converter\gh_dump_0.json>
+{
+  "Components": [
+
+................................
+
+<./gh2json_converter\gh_dump_1.json>
+{
+  "Components": [
+
+................................
+
+<./gh2json_converter\gh_dump_2.json>
+{
+ "Components": [
+ 
+................................
+
+<./gh2json_converter\gh_dump_3.json>
+{
+ "Components": [
+ 
+................................
+
+<./gh2json_converter\gh_dump_4.json>
+{
+ "Components": [
+ 
+................................
+
+<./gh2json_converter\gh_dump_5.json>
+{
+ "Components": [
+ 
+................................
+
+<./gh2json_converter\gh_dump_6.json>
+{
+ "Components": [
+ 
+................................
+
+<./ghx2json_converter\ghx2json.py>
+import xml.etree.ElementTree as ET
+import json
+import sys
+
+def find_item_value(element, item_name):
+    """
+    Helper function to find the text value of a specific <item> by its name attribute.
+    Searches all descendants of the given element.
+    """
+    if element is None:
+        return None
+    item = element.find(f".//item[@name='{item_name}']")
+    return item.text if item is not None else None
+
+def parse_ghx_to_compact_json(ghx_file_path):
+    """
+    Parses a Grasshopper .ghx file and converts it into a compact, indexed,
+    and consistent bidirectional JSON graph format (adjacency list style).
+
+    This format is optimized for LLM comprehension, size, and machine readability.
+
+    Args:
+        ghx_file_path (str): The path to the .ghx file.
+
+    Returns:
+        str: A JSON formatted string of the Grasshopper definition, or None if parsing fails.
+    """
+    try:
+        tree = ET.parse(ghx_file_path)
+        root = tree.getroot()
+    except (ET.ParseError, FileNotFoundError) as e:
+        print(f"Error reading or parsing file: {e}")
+        return None
+
+    components_list = []
+    guid_to_index_map = {}
+    param_guid_to_component_guid = {}
+    param_guid_to_name = {}
+
+    definition_objects = root.find(".//chunk[@name='DefinitionObjects']")
+    if definition_objects is None:
+        print("Could not find 'DefinitionObjects' chunk in the file.")
+        return None
+
+    all_objects = list(definition_objects.findall(".//chunk[@name='Object']"))
+    
+    # First pass: Discover components, assign indices, and map parameters
+    for i, obj in enumerate(all_objects):
+        container = obj.find("chunks/chunk[@name='Container']")
+        if container is None:
+            continue
+        instance_guid = find_item_value(container, 'InstanceGuid')
+        if not instance_guid:
+            continue
+        
+        guid_to_index_map[instance_guid] = i
+        
+        component_info = {
+            'id': instance_guid, # Temporary ID for lookups
+            'nickname': find_item_value(container, 'NickName') or find_item_value(container, 'Name'),
+            'name': find_item_value(container, 'Name'),
+            'inputs': {},
+            'outputs': {}, # MODIFICATION: Changed from list to dictionary
+            'persistent_data': {}
+        }
+        
+        param_chunks = [c for c in container.findall(".//chunk") if c.get('name', '').startswith('param_')]
+        if not param_chunks:
+            param_data_chunk = container.find(".//chunk[@name='ParameterData']")
+            if param_data_chunk:
+                param_chunks = param_data_chunk.findall("./chunk")
+
+        for param in param_chunks:
+            param_guid = find_item_value(param, 'InstanceGuid')
+            if param_guid:
+                param_guid_to_component_guid[param_guid] = instance_guid
+                param_full_name = find_item_value(param, 'Name')
+                param_guid_to_name[param_guid] = param_full_name
+                
+                param_name_attr = param.get('name', '')
+                if 'output' in param_name_attr.lower():
+                    # MODIFICATION: Initialize output param as a key with an empty list
+                    component_info['outputs'][param_full_name] = []
+
+        slider = container.find(".//chunk[@name='Slider']")
+        if slider is not None:
+            component_info['persistent_data']['slider_value'] = find_item_value(slider, 'Value')
+
+        panel_text = find_item_value(container, 'UserText')
+        if panel_text is not None and panel_text != 'Double click to edit panel content…':
+             component_info['persistent_data']['panel_text'] = panel_text
+
+        components_list.append(component_info)
+
+    # Second pass: Process connections to build both input and output links
+    for i, comp_info in enumerate(components_list):
+        obj = all_objects[i]
+        container = obj.find("chunks/chunk[@name='Container']")
+        
+        param_chunks = [c for c in container.findall(".//chunk") if c.get('name', '').startswith('param_input')]
+        if not param_chunks:
+            param_data_chunk = container.find(".//chunk[@name='ParameterData']")
+            if param_data_chunk:
+                param_chunks = [c for c in param_data_chunk.findall("./chunk") if c.get('name', '').startswith('InputParam')]
+        
+        for param in param_chunks:
+            target_param_name = find_item_value(param, 'Name')
+            sources = param.findall(".//item[@name='Source']")
+            if sources:
+                source_param_guid = sources[0].text
+                if source_param_guid in param_guid_to_component_guid:
+                    source_comp_guid = param_guid_to_component_guid[source_param_guid]
+                    source_comp_index = guid_to_index_map.get(source_comp_guid)
+                    source_param_name = param_guid_to_name.get(source_param_guid)
+                    
+                    if source_comp_index is not None:
+                        # Add the input connection
+                        # MODIFICATION: Store source param name instead of index
+                        comp_info['inputs'][target_param_name] = {
+                            "source_component": source_comp_index,
+                            "source_param": source_param_name
+                        }
+                        
+                        # Add the corresponding output connection to the source component
+                        source_component_to_update = components_list[source_comp_index]
+                        if source_param_name in source_component_to_update['outputs']:
+                            source_component_to_update['outputs'][source_param_name].append({
+                                "target_component": i,
+                                "target_param": target_param_name
+                            })
+
+    # Finalization: Build the final dictionary and clean up temporary IDs
+    components_dict = {}
+    for i, comp_info in enumerate(components_list):
+        final_comp_info = comp_info.copy()
+        del final_comp_info['id']
+        components_dict[i] = final_comp_info
+
+    output_json = {
+        'metadata': {
+            'file_name': ghx_file_path
+        },
+        'components': components_dict
+    }
+
+    return json.dumps(output_json, indent=4)
+
+
+if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        print("Usage: python ghx_converter_compact.py <path_to_ghx_file>")
+        input_file = r'converter\scripts\buildings in plots.ghx'
+        print(f"No file path provided. Using default '{input_file}'.")
+    else:
+        input_file = sys.argv[1]
+
+    output_file = input_file.rsplit('.', 1)[0] + '.json'
+
+    print(f"Converting '{input_file}' to compact JSON '{output_file}'...")
+    
+    json_output = parse_ghx_to_compact_json(input_file)
+
+    if json_output:
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(json_output)
+        print("Conversion successful!")
+    else:
+        print("Conversion failed.")
+
+
+<./ghx2json_converter\scripts\buildings in plots.ghx>
+﻿<?xml version="1.0"
+................................
+
+<./ghx2json_converter\scripts\buildings in plots.json>
+{
+    "metadata": {
+
+................................
+
+&&& FILE: ./gh_docs_generation\generate_docs.gh
+&&& ERROR: Could not read file: 'utf-8' codec can't decode byte 0xed in position 0: invalid continuation byte
+
+<./gh_docs_generation\grasshopper_components.md.t>
+# Grasshopper Compon
+................................
+
+<./js_examples\example-script-corrected.js>
+/**
+ * Generates a three-tiered cylindrical wireframe structure.
+ * @folder Parameters
+ * @param {number} divisionCount - Number of points on the circle. [default=21, min=3, max=50, step=1]
+ * @param {number} circleRadius - Radius of the base circle. [default=100, min=10, max=200, step=1]
+ * @param {number} layerHeight - Vertical distance between each layer. [default=96, min=0, max=200, step=1]
+ * @param {number} scaleLayer1 - Scale factor for the bottom layer. [default=0.8, min=0.1, max=2.0, step=0.1]
+ * @param {number} scaleLayer2 - Scale factor for the middle layer. [default=0.6, min=0.1, max=2.0, step=0.1]
+ * @param {number} scaleLayer3 - Scale factor for the top layer. [default=0.8, min=0.1, max=2.0, step=0.1]
+ * @param {number} shiftAmount - How many indices to shift points on each layer. [default=1, min=0, max=10, step=1]
+ * @returns {{type: THREE.LineSegments, name: "Wireframe", style: "wireframe", color: "Ocean"}}
+ */
+function generateWireStructure(divisionCount, circleRadius, layerHeight, scaleLayer1, scaleLayer2, scaleLayer3, shiftAmount) {
+    // A helper function to perform a circular shift on an array
+    const shiftArray = (arr, shift) => {
+        const len = arr.length;
+        const normalizedShift = ((shift % len) + len) % len;
+        if (normalizedShift === 0) return [...arr];
+        return [...arr.slice(len - normalizedShift), ...arr.slice(0, len - normalizedShift)];
+    };
+
+    // 1. Generate base points on a circle
+    const basePoints = [];
+    for (let i = 0; i < divisionCount; i++) {
+        const angle = (i / divisionCount) * 2 * Math.PI;
+        const x = circleRadius * Math.cos(angle);
+        const y = circleRadius * Math.sin(angle);
+        basePoints.push(new THREE.Vector3(x, y, 0));
+    }
+
+    const allLineVertices = [];
+    let currentPoints = basePoints.map(p => p.clone());
+    let previousLayerPointsPostShift = null;
+
+    const scaleFactors = [scaleLayer1, scaleLayer2, scaleLayer3];
+
+    // 2. Sequentially generate each layer
+    for (let i = 0; i < 3; i++) {
+        // Move points up
+        currentPoints.forEach(p => p.z += layerHeight);
+
+        // Scale points from the layer's center
+        const layerZ = currentPoints[0].z;
+        const center = new THREE.Vector3(0, 0, layerZ);
+        currentPoints.forEach(p => {
+            p.sub(center).multiplyScalar(scaleFactors[i]).add(center);
+        });
+        const pointsPreShift = currentPoints.map(p => p.clone());
+
+        // Shift the points
+        const pointsPostShift = shiftArray(pointsPreShift, shiftAmount);
+
+        // 3. Create lines based on Grasshopper script logic
+        // Create lines connecting the pre-shift and post-shift points on the first layer
+        if (i === 0) {
+            for (let j = 0; j < divisionCount; j++) {
+                allLineVertices.push(pointsPreShift[j], pointsPostShift[j]);
+            }
+        }
+
+        // Create lines connecting this layer to the previous one
+        if (previousLayerPointsPostShift) {
+            for (let j = 0; j < divisionCount; j++) {
+                allLineVertices.push(previousLayerPointsPostShift[j], pointsPostShift[j]);
+            }
+        }
+        
+        // Prepare for the next iteration
+        previousLayerPointsPostShift = pointsPostShift;
+        currentPoints = pointsPostShift.map(p => p.clone());
+    }
+
+
+    // 4. Create the final Three.js object
+    if (allLineVertices.length === 0) {
+        return { "Wireframe": new THREE.LineSegments() };
+    }
+    
+    const geometry = new THREE.BufferGeometry().setFromPoints(allLineVertices);
+    // The material will be applied by the renderer based on JSDoc, so a basic one here is fine.
+    const material = new THREE.LineBasicMaterial();
+    const lines = new THREE.LineSegments(geometry, material);
+
+    return {
+        "Wireframe": lines
+    };
+}
+
+<./prompts\Grasshopper to JavaScript Conversion.md>
+# Master Task: Grasshopper to JavaScript Conversion
+
+## 📜 Persona: Expert Grasshopper & Three.js Developer
+
+You are an expert in both Grasshopper (a visual programming environment for Rhino) and `three.js` (a JavaScript library for 3D graphics). Your task is to analyze a Grasshopper definition, provided in a structured JSON format, and perform a two-part conversion process: first, describe the script in natural language; second, generate a clean, production-ready JavaScript function that replicates its logic.
+
+---
+
+## 📥 Inputs
+
+You will receive two primary inputs:
+
+### 1. The Grasshopper Definition Graph (JSON)
+
+This JSON object represents the Grasshopper script in a compact, indexed, and bidirectional graph format. The structure is as follows:
+
+* `components`: A dictionary where each key is an integer index (e.g., `"0"`, `"1"`) and the value is an object representing a single component.
+    * `nickname`: The user-defined name for the component (e.g., `"Building massing depth"`). **Use this nickname in all natural language descriptions.**
+    * `name`: The official name of the component (e.g., `"Number Slider"`).
+    * `inputs`: A dictionary where each key is the name of an input parameter. The value is an object describing the incoming connection:
+        * `source_component`: The integer index of the component providing the data.
+        * `source_param`: The name of the output parameter on the source component.
+    * `outputs`: A dictionary where each key is the name of an output parameter. The value is an array of objects, each describing an outgoing connection:
+        * `target_component`: The integer index of the component receiving the data.
+        * `target_param`: The name of the input parameter on the target component.
+    * `persistent_data`: Contains hard-coded values from components like Sliders or Panels.
+
+### 2. Component Documentation (Markdown)
+
+You will also receive Markdown-formatted documentation for each unique component `name` found in the graph. This documentation will detail:
+
+* The component's general purpose.
+* A description of each input and output parameter.
+
+---
+
+## 🎯 Task Breakdown
+
+Your final output must contain two distinct sections: a natural language description followed by a JavaScript code block.
+
+### Part 1: Generate Natural Language Description
+
+Follow these steps precisely to create a clear and concise description of the script's functionality.
+
+1.  **Identify Key Inputs:** Find components that serve as primary user inputs. These are typically components with `persistent_data` (`"Number Slider"`, `"Panel"`) or parameter components (`"Point"`, `"Curve"`) that have an empty `inputs` dictionary.
+2.  **Trace the Logic Flow:** Follow the data flow from inputs to outputs using the `inputs` and `outputs` dictionaries. Use the component documentation to understand the operation at each step.
+3.  **Synthesize and Explain:** Construct a step-by-step narrative. **Always use the component `nicknames`** in your explanation (e.g., "The script starts by taking the 'Parcels' curves...").
+4.  **Determine the Final Output:** Identify the terminal components of the graph—those with empty `outputs` parameters. These represent the final results of the script.
+
+**Output Format for Part 1:**
+Please structure your natural language response using the following Markdown headings:
+
+#### High-Level Summary
+*A 1-2 sentence summary of the script's overall goal.*
+
+#### Key User Inputs
+*A bulleted list of the main parameters the user can control.*
+* **[Nickname of Input 1]:** A brief description of what it controls.
+* **[Nickname of Input 2]:** A brief description of what it controls.
+
+#### Step-by-Step Logic
+*A numbered list detailing the process from start to finish. Remember to use the component **nicknames**.*
+1.  The process begins with...
+2.  Next, the output of `'[Nickname A]'` is used to...
+3.  Then, the script...
+
+#### Final Output
+*A brief description of what the script ultimately creates or calculates.*
+
+---
+
+### Part 2: Generate JavaScript Code Block
+
+Create a single, self-contained JavaScript function that implements the logic of the Grasshopper script. This function must be ready to be copy-pasted into a web application and adhere strictly to the rules below.
+
+#### 🚨 Strict Rules & Validation
+
+**Failure to follow these rules will result in an unusable script. Validate your output against these points before finishing.**
+
+1.  **Flat Function Signature**: The function **must** accept a flat list of arguments (e.g., `function(width, height, count)`). **Do not** group arguments into a single object (e.g., `function(args)`). The argument names must be valid JavaScript identifiers (e.g., `divisionCount`, not `"Division Count"`).
+    * **Correct**: `function createTower(height, radius) { ... }`
+    * **Incorrect**: `function createTower(parameters) { ... }`
+
+2.  **One `@param` Per Argument**: Each argument in the function signature **must** have its own corresponding `@param` line in the JSDoc.
+    * **Correct**:
+        ```javascript
+        /**
+         * @param {number} height - The height of the tower. [default=10]
+         * @param {number} radius - The radius of the tower. [default=2]
+         */
+        function createTower(height, radius)
+        ```
+    * **Incorrect**:
+        ```javascript
+        /**
+         * @param {object} params - All parameters.
+         */
+        function createTower(params)
+        ```
+
+3.  **Literal String Values in `@returns`**: The `name`, `style`, `color`, and `lineStyle` properties inside an `@returns` tag **must** be enclosed in double quotes and use the exact string values from the "Styling Constants" tables. They cannot be generic types like `string`.
+    * **Correct**: `@returns {{type: THREE.Mesh, name: "Tower Lofts", style: "filledThick", color: "Ocean"}}`
+    * **Incorrect**: `@returns {{type: THREE.Mesh, name: string, style: string, color: string}}`
+
+4.  **Return a Map Object**: The function **must** return a single JavaScript object that maps the output `name` (from the `@returns` JSDoc) to the corresponding `THREE.js` object.
+    * **Correct**: `return { "Tower Lofts": myMeshObject, "Guide Curve": myLineObject };`
+    * **Incorrect**: `return myMeshObject;`
+    * **Incorrect**: `return [myMeshObject, myLineObject];`
+
+5.  **Self-Contained Code**: The generated function **must not** depend on any external libraries or utility functions other than `three`. All helper functions (e.g., for geometry creation or math) must be defined inside the main function's body.
+
+#### **Function & JSDoc Requirements:**
+
+1.  **Function Signature:** The function should be named descriptively (e.g., `generateGeometry`, `calculateStructure`) and accept arguments corresponding to the user inputs identified in Part 1.
+2.  **JSDoc (`/** ... */`):** Precede the function with a JSDoc comment block. This is critical for the front-end application to parse and generate a UI.
+    * **Input Parameters (`@param`):** For each user input, use a `@param` tag.
+        * Format: `@param {{type}} name - Description [metadata]`
+        * Supported Types & Metadata:
+            * `{number}`: `[default=value, min=value, max=value, step=value]`
+            * `{string}` (for color/text): `[default="value"]`
+            * `{boolean}`: `[default=true]`
+            * `{number[]}` (Point): `[default=[x, y, z], interactive=true]` (The `interactive` tag renders a gizmo).
+            * `{Array<number[]>}` (Polyline): `[default=[[x1,y1,z1],...], interactive=true]`
+        * Use `@folder` tags to group related parameters, e.g., `@folder Geometry`, `@folder Style`.
+    * **Output Parameters (`@returns`):** For each final output geometry, use a `@returns` tag.
+        * Format: `@returns {{type: THREE.Object3D, name: "outputName", style: "styleName", color: "ColorName", lineStyle?: "lineStyleName"}}`
+        * The `type` must be a valid Three.js object type (e.g., `THREE.Mesh`, `THREE.Line`).
+        * The `name`, `style`, `color`, and `lineStyle` values must be chosen from the tables below.
+        * Return a single object mapping the output `name` to the corresponding Three.js object, e.g., `return { "Final Mesh": meshObject, "Boundary Line": lineObject };`.
+
+#### **Implementation Rules:**
+
+1.  **Dependencies:** Use `three` and its core modules. Avoid external libraries. Implement all necessary geometric and mathematical utility functions directly within your code (e.g., `lerp`, `remap`, `pointFromVector`).
+2.  **Three.js Geometry:**
+    * Translate Grasshopper **Points** into `THREE.Vector3` for calculations.
+    * Translate Grasshopper **Curves/Polylines** into `THREE.Line`, `THREE.BufferGeometry`, or `ExtrudeGeometry`.
+    * Translate Grasshopper **Surfaces/Breps** into `THREE.Mesh` objects using appropriate geometries (e.g., `BoxGeometry`, `ExtrudeGeometry`).
+3.  **Self-Contained:** The code block must be a single, complete function. It should not reference any external variables or functions not defined within the block itself.
+
+#### **Styling Constants:**
+
+**Color Palette:** Use the **Name** column.
+| Name   | Hex (Base) | Name   | Hex (Base) |
+| :----- | :--------- | :----- | :--------- |
+| **Ocean** | `#0096C7`  | **Sunset** | `#F77F00`  |
+| **Forest** | `#52B788`  | **Grape** | `#8338EC`  |
+| **Ruby** | `#D62828`  | **Lemon** | `#FCBF49`  |
+| **Sky** | `#4CC9F0`  | **Blush** | `#FF7096`  |
+
+**Geometry Styles:** Use the **Name** column.
+| Name               | Description                                    |
+| :----------------- | :--------------------------------------------- |
+| `filledThick`      | Solid, opaque mesh with a prominent outline.   |
+| `wireframe`        | Edges only, no faces.                          |
+| `transparentThick` | Semi-transparent mesh with a prominent outline.|
+| `transparentThin`  | Semi-transparent mesh with a subtle outline.   |
+
+**Line Styles:** Use the **Name** column.
+| Name     | Description                           |
+| :------- | :------------------------------------ |
+| `solid`  | A continuous line.                    |
+| `dashed` | A line with repeating dashes and gaps. |
+| `dotted` | A line composed of small dots.        |
+
+---
+
+### Example of a Complete & Correct Output
+
+Here is a small example of a perfect response that follows all the rules.
+
+#### High-Level Summary
+This script generates a simple box (cuboid) with user-defined dimensions.
+
+#### Key User Inputs
+* **width:** Controls the width of the box along the X-axis.
+* **height:** Controls the height of the box along the Y-axis.
+* **depth:** Controls the depth of the box along the Z-axis.
+
+#### Step-by-Step Logic
+1. The script receives `width`, `height`, and `depth` values as inputs.
+2. It uses these dimensions to define a `THREE.BoxGeometry`.
+3. It creates a `THREE.Mesh` from the geometry.
+4. To ensure the box sits on the ground plane (y=0), its position is moved up by half of its height.
+
+#### Final Output
+The script produces a single `THREE.Mesh` object representing the parametric box.
+
+```javascript
+/**
+ * Creates a parametric box with customizable dimensions and styling.
+ * @param {number} width - Width of the box [default=2, min=0.1, max=10, step=0.1]
+ * @param {number} height - Height of the box [default=1, min=0.1, max=10, step=0.1]
+ * @param {number} depth - Depth of the box [default=1, min=0.1, max=10, step=0.1]
+ * @returns {{type: THREE.Mesh, name: "StyledBox", style: "filledThick", color: "Ocean"}}
+ */
+function createStyledBox(width, height, depth) {
+  const geometry = new THREE.BoxGeometry(width, height, depth);
+  // A basic material is fine; the renderer will apply the correct style.
+  const material = new THREE.MeshStandardMaterial();
+  
+  const mesh = new THREE.Mesh(geometry, material);
+  // Position mesh so its base is at y=0
+  mesh.position.set(0, height / 2, 0);
+  
+  // Return an object mapping the 'name' from @returns to the mesh
+  return {
+    "StyledBox": mesh
+  };
+}
+
+<./prompts\Grasshopper to Technical Specification.md>
+# Master Task: Grasshopper JSON to Technical Specification for Replication (Version 3.0)
+
+## 📜 Persona: Expert Systems Analyst & Technical Writer
+
+You are a systems analyst specializing in reverse-engineering algorithmic workflows. Your task is to analyze a Grasshopper definition (provided as a JSON object) and produce a **Concise but Complete Technical Specification Document**.
+
+**Your primary objective is to balance detail with readability.** The final document must be detailed enough for a software engineer to replicate the script's logic flawlessly, but concise enough to be understandable for large, complex scripts. To achieve this, you will **group simple, linear operations** into narrative steps, and reserve the most detailed analysis for **key, high-impact components**.
+
+**Crucially, the data flow must remain a fully connected logical graph.** No component mentioned as an input source should be left unexplained.
+
+---
+
+## 📥 Input: The Grasshopper Definition Graph (JSON)
+
+You will receive a JSON object representing the Grasshopper script's component graph. The structure is as follows:
+
+* **`Components`**: An array of objects, where each object represents a single component.
+    * **`Id`**: The unique integer identifier. **Use this for all component references.**
+    * **`NickName`**: The user-defined name. **Always use this in your documentation.**
+    * **`Name`**: The official component type (e.g., `"Polyline Offset"`, `"List Item"`).
+    * **`Inputs`**: An array detailing incoming data connections as `[source_component_id, source_output_index]`.
+    * **`Outputs`**: An array containing `DataPreview` strings. **Use these for all data examples.**
+
+---
+
+## 🎯 Task: Generate the Technical Specification Document
+
+Your entire output must be a single, structured Markdown document. Adhere strictly to the following format.
+
+### Report Structure
+
+**# Technical Specification: [Inferred Script Title]**
+
+*Infer a suitable title based on the script's primary function or key component nicknames.*
+
+**## 1. Executive Summary**
+
+**### 1.1. System Purpose**
+*A 1-2 sentence summary of what problem the script solves.*
+
+**### 1.2. Core Methodology**
+*A short paragraph explaining the high-level strategy used. (e.g., "The system generates furnished apartment layouts by first creating wall geometry from room outlines, then algorithmically determining optimal furniture placement based on a scoring system, and finally visualizing the resulting configuration.").*
+
+**## 2. System Interface (Inputs & Outputs)**
+
+**### 2.1. User-Defined Inputs**
+*List the primary, user-configurable inputs that initiate the script's logic. These are components with no incoming connections.*
+
+* **[Input NickName]** `(Component ID: [Id])`: [Description of the input's role].
+    * *Data Example:* `[DataPreview value]`
+
+**### 2.2. Final System Outputs**
+*List the final, meaningful results produced by the script. These are typically the terminal components of the graph.*
+
+* **[Output NickName]** `(Component ID: [Id])`: [Description of what the output represents].
+    * *Data Example:* `[DataPreview value]`
+
+**## 3. Detailed Logic and Data Flow**
+
+This section deconstructs the script into logical sequences. Within each sequence, you will use two methods of documentation:
+
+1.  **Narrative Paragraphs for Simple Chains:** For simple, linear sequences of components (e.g., a component's output feeds directly into the next, which feeds into the next), describe the entire chain in a single paragraph. State the overall goal of the chain, mention each component and its ID in order, and describe how the data is transformed at the end of the chain.
+    * ***Example of a Simple Chain:*** "To get the number of rooms, the script first takes the merged room curves and flattens them into a simple list with **Flatten Tree** `(ID: 74)`, then counts the items in that list using **List Length** `(ID: 75)`, which outputs the final count of `3`."
+
+2.  **Detailed Template for Key Components:** For all **key components**, provide a full analysis using the strict template below. A key component is any component that:
+    * Is a **`Cluster`**.
+    * **Merges** multiple, distinct logical paths (`Merge`).
+    * **Splits** a logical path (`Dispatch`, `Stream Filter`).
+    * Performs a **critical geometric or logical operation** central to the script's purpose (`Transform`, `Sort List`, `Region Difference`, `Collision One|Many`, etc.).
+
+### Sequence A: [Name of the First Logical Block]
+
+*(Begin documenting the sequence, using a mix of narrative paragraphs for simple chains and the detailed template for key components.)*
+
+---
+**Component: `[Component NickName]`** `(Component ID: [Id])`  <-- *Use this for Key Components*
+* **Type:** `[Component Name]`
+* **Purpose:** [A 1-sentence explanation of what this specific component instance is achieving in the script's logic.]
+* **Rationale:** [A 1-sentence explanation of *why* this operation is necessary for the overall workflow.]
+* **Inputs:**
+    * `[Input Parameter Name]`: Receives data from **`[Source NickName]`** `(Component ID: [SourceId])`.
+        * *Data Example:* `[DataPreview value from source]`
+* **Operation:** [A clear, plain-language description of the action the component performs on its inputs.]
+* **Outputs:**
+    * `[Output Parameter Name]`: Produces [describe the output data], which is sent to **`[Target NickName]`** `(Component ID: [TargetId])`.
+        * *Data Example:* `[DataPreview value]`
+---
+
+*(Continue this hybrid documentation method for all logical sequences.)*
+
+<./prompts\Viewer App Idea.md>
+I am building a converter from Grasshopper .gh scripts into javascript/threejs. The goal is to pair fast and visual prototyping in Grasshopper with expandable and easy to integrate development using js+three.js.
+
+I have a workflow where an LLM describes .gh file as a Specification file containing information about what and how the .gh script does. 
+
+I later on use another LLM agent to convert these specs into a javascript code which does the same but operates three.js geometries instead of Grasshopper.
+
+I plan to use this workflow to create an extensive library of js scripts which I could easily connect to my frontend application whose main focus lays in processing 2d/3d geometry and chaining up many smaller functions. Example of such an app can be an urban design simulator: `take plot outline input and offset it -> let user draw streets -> generate buildings -> split free space into zones -> let user decide on which design templates to apply to each zone (e.g. playground, bushes, recreation, sitting area, square) -> visualize final result`. Each of these steps could be one grasshopper file, or all of them could represent one grasshopper file.
+
+To visually test how my LLM agents convert Grasshopper definitions into JS code I need to have a JS written serverless webapp running on GitHub Pages which will recognize all inputs of JS script from JSDocs and show them as Leva inputs. It should also display all necessary outputs and I should be able to control which of them to show in display tab of Leva. What I want from you is to design this app now: 
+
+1. **Specify format of JSDocs to use for inputs and outputs:** some inputs are sliders with min/max/default values, some of them are colors, some of them are points (how do we input points/polylines in this app? can we show them in 3D view and control them with gizmos? or only as point coordinates in Leva?), meshes, polylines, text - practically any main type supported by Grasshopper. If script requires many inputs, you should provide a way for the LLM to sort them in different categories in Leva.
+2. **Define styles JS script generator can use to display outputs:** 
+    2.1. Create color palette of 8 bright unique and modern colors. Create lighter and darker versions of them and name them all, so that JS Script converter can specify which of them to use for every output geometry.
+    2.2 In the similar manner create 4 template styles for geometry: filled with thick outlines, wireframe, semi-transparent with thick outlines, semi-transparent with thin outlines.
+    2.3 Define line styles for 2D/3D geometry: solid, dashed, dotted.
+3. **Design simple single page UX of the app:** I should be able to paste JS code from clipboard (small expandable input field + a button to automatically read data from current clipboard) and immediatelly see the result: 3d view with geometry inputs/outputs and Leva panel for controlling the app. 
+4. **Finally, generate a full design task for building this app:** I intent to give it to an LLM agent which should build the fully functional app for me which I can run locally and on GitHub pages. If you think that GitHub pages is too simple for it, I can also consider moving to a fullstack app running with docker.
+
+<./prompts\Viewer App Task Brief.md>
+### 1\. JSDoc Specification for Inputs & Outputs
+
+To allow the LLM to generate predictable and parsable code, we'll establish a strict JSDoc format. This format uses standard JSDoc tags (`@param`, `@returns`) enriched with custom, bracketed metadata for UI generation.
+
+#### **Input Parameters (`@param`)**
+
+The core format is: `/** @param {{type}} name - Description [metadata] */`
+
+  * **`@folder` Tag (Optional):** To group inputs in Leva, use a preceding `@folder` tag. All subsequent `@param` tags will belong to this folder until a new `@folder` tag is declared.
+
+  * **Supported Types & Metadata:**
+
+      * **Number (Slider):**
+          * `{number}`
+          * Metadata: `[default=value, min=value, max=value, step=value]`
+          * Example:
+            ```javascript
+            /**
+             * @folder Geometry
+             * @param {number} radius - The radius of the circle. [default=10, min=1, max=50, step=0.1]
+             */
+            ```
+      * **Color:**
+          * `{string}` (Leva's color picker returns a hex string)
+          * Metadata: `[default="#ff00ff"]`
+          * Example:
+            ```javascript
+            /**
+             * @folder Style
+             * @param {string} objectColor - The main color of the mesh. [default="#00aaff"]
+             */
+            ```
+      * **Text:**
+          * `{string}`
+          * Metadata: `[default="Hello World"]`
+          * Example:
+            ```javascript
+            /**
+             * @folder Content
+             * @param {string} label - The text to display. [default="My Object"]
+             */
+            ```
+      * **Boolean (Toggle):**
+          * `{boolean}`
+          * Metadata: `[default=true]`
+          * Example:
+            ```javascript
+            /**
+             * @folder Controls
+             * @param {boolean} enableBevel - Toggles the bevel effect. [default=false]
+             */
+            ```
+      * **Point (Vector):**
+          * `{number[]}` (An array of 3 numbers: `[x, y, z]`)
+          * Metadata:
+              * `[default=[x, y, z]]`
+              * `[interactive=true]`: If present, a 3D gizmo will be rendered in the scene to control this point.
+          * Example:
+            ```javascript
+            /**
+             * @folder Geometry
+             * @param {number[]} startPoint - The starting point of the line. [default=[0, 0, 0], interactive=true]
+             */
+            ```
+      * **Polyline:**
+          * `{Array<number[]>}` (An array of points)
+          * Metadata:
+              * `[default=[[x1,y1,z1], [x2,y2,z2], ...]]`
+              * `[interactive=true]`: Renders a gizmo for each point in the polyline.
+          * Example:
+            ```javascript
+            /**
+             * @folder Geometry
+             * @param {Array<number[]>} boundary - The boundary curve. [default=[[0,0,0], [10,0,0], [10,10,0]], interactive=true]
+             */
+            ```
+      * **Mesh/Geometry (Non-interactive):**
+          * `{THREE.BufferGeometry | THREE.Mesh}` (Or other Three.js types)
+          * These are passed in from other scripts in a potential chain. They won't have a Leva input but are listed for clarity.
+          * Example:
+            ```javascript
+            /**
+             * @param {THREE.BufferGeometry} baseSurface - The surface to build upon.
+             */
+            ```
+
+#### **Output Parameters (`@returns`)**
+
+The format is: `/** @returns {{type: THREE.Object3D, name: string, style: string, color: string, lineStyle?: string}} */`
+
+Each script should return a single object where keys are the output names and values are the Three.js objects to be rendered. The JSDoc describes the properties of the objects *within* the returned map.
+
+  * `type`: The expected Three.js object type (e.g., `THREE.Mesh`, `THREE.LineSegments`).
+
+  * `name`: A user-friendly name for the output, used in the Leva display toggle.
+
+  * `style`: The geometry style to apply. (See Section 2.2).
+
+  * `color`: The color to use from the palette. (See Section 2.1).
+
+  * `lineStyle` (Optional): The line style to apply for curves or wireframes. (See Section 2.3).
+
+  * **Example:**
+
+    ```javascript
+    /**
+     * Creates a lofted surface from a series of profile curves.
+     * @folder Profiles
+     * @param {Array<number[]>} profile1 - First profile curve. [default=[[-5,0,0], [5,0,0]], interactive=true]
+     * @param {Array<number[]>} profile2 - Second profile curve. [default=[[-5,10,2], [5,10,-2]], interactive=true]
+     * @folder Style
+     * @param {string} surfaceColor - Color of the main surface. [default="ocean"]
+     *
+     * @returns {{type: THREE.Mesh, name: "Lofted Surface", style: "filledThick", color: "ocean"}}
+     * @returns {{type: THREE.Line, name: "Profile 1 Viz", style: "wireframe", color: "sunset", lineStyle: "dashed"}}
+     */
+    function loftProfiles(profile1, profile2, surfaceColor) {
+      // ...script logic...
+      return {
+        "Lofted Surface": generatedMesh,
+        "Profile 1 Viz": profile1LineObject
+      };
+    }
+    ```
+
+-----
+
+### 2\. Output Display Styles
+
+These are predefined constants the app will use to render geometry based on the JSDoc `@returns` metadata.
+
+#### **2.1. Color Palette**
+
+The LLM should use the **Name** column when specifying a color.
+
+| Name | Hex (Base) | Hex (Light) | Hex (Dark) |
+| :--- | :--- | :--- | :--- |
+| **Ocean** | `#0096C7` | `#48B5D8` | `#0077A0` |
+| **Forest** | `#52B788` | `#79D1A7` | `#41926D` |
+| **Sunset** | `#F77F00` | `#F9A040` | `#C56500` |
+| **Grape** | `#8338EC` | `#A269F0` | `#682CC9` |
+| **Ruby** | `#D62828` | `#E15B5B` | `#AA2020` |
+| **Lemon** | `#FCBF49` | `#FDD57A` | `#C9983A` |
+| **Sky** | `#4CC9F0` | `#76D9F4` | `#3C9FC0` |
+| **Blush** | `#FF7096` | `#FF94B2` | `#CC5978` |
+
+#### **2.2. Geometry Styles**
+
+| Name | Description | Three.js Implementation |
+| :--- | :--- | :--- |
+| `filledThick` | Solid, opaque mesh with a prominent outline. | `MeshStandardMaterial` + `EdgesGeometry` with thick `LineBasicMaterial`. |
+| `wireframe` | Edges only, no faces. | `LineSegments` with `LineBasicMaterial`. |
+| `transparentThick` | Semi-transparent mesh with a prominent outline. | `MeshStandardMaterial` (`transparent:true`, `opacity:0.6`) + `EdgesGeometry` with thick `LineBasicMaterial`. |
+| `transparentThin` | Semi-transparent mesh with a subtle outline. | `MeshStandardMaterial` (`transparent:true`, `opacity:0.6`) + `EdgesGeometry` with thin `LineBasicMaterial`. |
+
+#### **2.3. Line Styles**
+
+| Name | Description | Three.js Implementation |
+| :--- | :--- | :--- |
+| `solid` | A continuous line. | `LineBasicMaterial`. |
+| `dashed` | A line with repeating dashes and gaps. | `LineDashedMaterial` (`scale`, `dashSize`, `gapSize`). |
+| `dotted` | A line composed of small dots. | `LineDashedMaterial` with very small `dashSize`. |
+
+-----
+
+### 3\. Application UX Design
+
+The app will be a simple, single-page interface designed for immediate feedback.
+
+  * **Layout:** A two-panel layout.
+      * **Left Panel (Controls):** Takes up \~35% of the viewport width.
+          * **Header:** A simple title like "Grasshopper.js Sandbox".
+          * **Code Input:** A small, vertically resizable text area for pasting the JavaScript code. It should have syntax highlighting.
+          * **Buttons:**
+              * **`Run`:** Manually triggers the script parsing and execution. (Could also be debounced to run on code change).
+              * **`Paste from Clipboard`:** A helper button to automatically paste clipboard content into the text area and run.
+              * **`Clear`:** Empties the code area.
+      * **Right Panel (Viewport):** Takes up the remaining \~65%.
+          * **3D Canvas:** A full-height canvas for rendering the Three.js scene. It will include default orbit controls, a ground grid, and basic lighting.
+      * **Leva Panel:** Floats on top of the 3D canvas in the top-right corner. It is populated dynamically based on the parsed JSDocs from the code input. It will contain folders for inputs and a dedicated "Outputs" folder with toggles for the visibility of each returned geometry object.
+
+-----
+
+### 4\. Full Design Task for an LLM Agent
+
+Here is a detailed task description you can provide to a code-generating LLM.
+
+-----
+
+**Project Title:** Grasshopper.js Sandbox
+
+**Objective:** Create a serverless, single-page React web application that allows a user to paste a JavaScript code snippet, dynamically generates a UI for its inputs using Leva, and renders its Three.js geometry output in a 3D viewport. The application should be deployable to GitHub Pages.
+
+**Tech Stack:**
+
+  * **Framework:** React (using Vite)
+  * **3D Rendering:** `three`, `@react-three/fiber`, `@react-three/drei`
+  * **UI Controls:** `leva`
+  * **JS Parser:** `acorn` (to parse the code string and extract JSDoc comments)
+  * **Code Editor:** `react-simple-code-editor` (for a lightweight input with syntax highlighting)
+
+**Core Workflow:**
+
+1.  The user pastes JavaScript code into a text editor component.
+2.  On `Run`, the app parses this string using **Acorn** to build an Abstract Syntax Tree (AST).
+3.  A custom parser function traverses the AST to find the main function declaration and its associated JSDoc comments.
+4.  The parser extracts all `@param`, `@returns`, and `@folder` tags and their metadata into a structured JSON object.
+5.  This structured object is used to dynamically generate a schema for **Leva**, creating sliders, color pickers, etc., for inputs and a folder of boolean toggles for output visibility.
+6.  The body of the user's JavaScript function is extracted as a string.
+7.  A React component (`DynamicScriptHost`) takes the current values from the Leva controls as arguments, executes the user's function using `new Function(...)`, and receives the output geometry.
+8.  The component then renders the returned Three.js objects into the `@react-three/fiber` scene, applying the styles and colors specified in the `@returns` JSDoc metadata.
+9.  Interactive inputs (`[interactive=true]`) will render `@react-three/drei`'s `TransformControls` gizmos in the scene, which update the corresponding Leva state on drag.
+
+**File Structure:**
+
+```plaintext
+/public/
+/src/
+  /components/
+    CodeEditor.jsx      # The code input text area and control buttons
+    Scene.jsx           # The main R3F Canvas, lights, and environment
+    DynamicRenderer.jsx # Renders a single piece of geometry based on style props
+    GizmoController.jsx # Renders TransformControls for interactive points
+  /hooks/
+    useScriptParser.js  # Custom hook taking code string, returns parsed { inputs, outputs, functionBody }
+    useLevaFromParams.js # Custom hook taking parsed inputs/outputs, returns [levaSchema, levaValues]
+  /lib/
+    constants.js        # Exports the color palette and style definitions
+    parser.js           # The core AST traversal and JSDoc parsing logic
+  App.jsx               # Main component, manages state and orchestrates the workflow
+  main.jsx              # Vite entry point
+  index.css             # Basic styling
+```
+
+**Implementation Details:**
+
+  * **`parser.js`:**
+
+      * This is the most complex part. It should use Acorn to parse the code.
+      * It needs to find JSDoc blocks (`/** ... */`) attached to a function declaration.
+      * It must parse the JSDoc comment text to extract tags (`@param`, `@returns`, `@folder`) and their metadata (e.g., `[default=10, min=0]`). Regular expressions will be useful here.
+      * It should return a clean object, like:
+        ```json
+        {
+          "inputs": [
+            { "name": "radius", "type": "number", "folder": "Geometry", "default": 10, "min": 1, ... }
+          ],
+          "outputs": [
+            { "name": "Lofted Surface", "style": "filledThick", "color": "ocean" }
+          ],
+          "functionBody": "...",
+          "argNames": ["radius"]
+        }
+        ```
+
+  * **`useScriptParser.js`:** A simple React hook wrapper around the `parser.js` logic that memoizes the result to avoid re-parsing on every render.
+
+  * **`App.jsx`:**
+
+      * Holds the raw code string in its state: `const [code, setCode] = useState('');`
+      * Uses the `useScriptParser` hook to get the parsed script details.
+      * Uses a `useLevaFromParams` hook which takes the parsed details and generates the Leva controls. This hook returns the current values from Leva.
+      * Passes the `functionBody`, `argNames`, `outputs` configuration, and the current `levaValues` to the `<Scene />` component.
+
+  * **`Scene.jsx`:**
+
+      * Contains the R3F `<Canvas>`.
+      * Includes `<OrbitControls />`, `<Grid />`, and `<ambientLight />`.
+      * It will dynamically execute the user's code. An effect hook (`useEffect`) can be used to run the script whenever Leva values change.
+      * **Execution:** Create the function: `const scriptFn = new Function(...parsed.argNames, parsed.functionBody);`.
+      * Call it with Leva values: `const results = scriptFn(...Object.values(levaValues));`.
+      * Map over the `results` object and render each piece of geometry using a `DynamicRenderer` component, but only if its corresponding visibility toggle in Leva is `true`.
+      * Render `GizmoController` for any interactive inputs.
+
+  * **Styling:** In `lib/constants.js`, define the color palette and material styles as objects that can be easily accessed. The `DynamicRenderer` component will take props like `style="filledThick"` and `color="ocean"` and select the correct materials and settings from these constants.
+
+**Final Deliverable:** A complete, runnable React application source code adhering to the specified structure and functionality. Include a basic `README.md` explaining how to install dependencies (`npm install`) and run the development server (`npm run dev`).
+
+<./public\vite.svg>
+<svg xmlns="http://w
+................................
+
+<./src\App.css>
+.app {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.left-panel {
+  width: 35%;
+  height: 100vh;
+  background-color: #1a1a1a;
+  border-right: 1px solid #333;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.right-panel {
+  width: 65%;
+  height: 100vh;
+  background-color: #242424;
+  position: relative;
+  overflow: hidden;
+}
+
+.code-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  overflow: hidden;
+}
+
+.editor-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-shrink: 0;
+}
+
+.editor-textarea {
+  flex: 1;
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  border: 1px solid #3c3c3c;
+  border-radius: 6px;
+  padding: 1rem;
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 400;
+  letter-spacing: 0.025em;
+  resize: none;
+  outline: none;
+  overflow-y: auto;
+  tab-size: 2;
+}
+
+.editor-textarea:focus {
+  border-color: #646cff;
+  box-shadow: 0 0 0 2px rgba(100, 108, 255, 0.2);
+}
+
+/* Code Editor with Syntax Highlighting */
+.code-editor-container {
+  position: relative;
+  flex: 1;
+  border: 1px solid #3c3c3c;
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: #1e1e1e;
+}
+
+.code-editor-container:focus-within {
+  border-color: #646cff;
+  box-shadow: 0 0 0 2px rgba(100, 108, 255, 0.2);
+}
+
+.code-editor-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0 !important;
+  padding: 1rem;
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  font-weight: 400;
+  letter-spacing: 0.025em;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow: auto;
+  pointer-events: none;
+  background: transparent !important;
+  tab-size: 2;
+}
+
+.code-editor-textarea {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 1rem;
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 400;
+  letter-spacing: 0.025em;
+  background: transparent;
+  color: transparent;
+  caret-color: #d4d4d4;
+  border: none;
+  outline: none;
+  resize: none;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow: auto;
+  tab-size: 2;
+}
+
+.code-editor-textarea::selection {
+  background-color: rgba(100, 108, 255, 0.3);
+  color: transparent;
+}
+
+.scene-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.error-display {
+  background-color: #ff4444;
+  color: white;
+  padding: 0.5rem;
+  margin-top: 0.5rem;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+button {
+  border-radius: 4px;
+  border: 1px solid #646cff;
+  padding: 0.5em 1em;
+  font-size: 0.9em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  color: #646cff;
+  cursor: pointer;
+  transition: all 0.25s;
+}
+
+button:hover {
+  background-color: #646cff;
+  color: white;
+}
+
+button:focus,
+button:focus-visible {
+  outline: 2px solid #646cff;
+  outline-offset: 2px;
+}
+
+/* Leva panel styling - ensure it's visible */
+[data-leva-root] {
+  position: fixed !important;
+  top: 20px !important;
+  right: 20px !important;
+  z-index: 9999 !important;
+  max-width: 300px !important;
+  max-height: calc(100vh - 40px) !important;
+  overflow-y: auto !important;
+  background: rgba(26, 26, 26, 0.95) !important;
+  border: 1px solid #646cff !important;
+  border-radius: 8px !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+/* Ensure Leva panel doesn't interfere with 3D scene */
+.right-panel {
+  position: relative;
+}
+
+
+<./src\App.jsx>
+import { useState, useEffect, useRef } from 'react'
+import { Canvas } from '@react-three/fiber'
+import { OrbitControls, Grid } from '@react-three/drei'
+import { Leva, useControls } from 'leva'
+import './App.css'
+import { parseScript } from './lib/parser.js'
+import GeometryRenderer from './components/GeometryRenderer.jsx'
+import LevaControls from './components/LevaControls.jsx'
+import GizmoController from './components/GizmoController.jsx'
+import InputVisualizer from './components/InputVisualizer.jsx'
+import CodeEditor from './components/CodeEditor.jsx'
+
+// Test component to verify Leva is working
+function TestLevaControls() {
+  const { testValue } = useControls('Test', {
+    testValue: { value: 1, min: 0, max: 10, step: 0.1 }
+  })
+  return null
+}
+
+function App() {
+  const [code, setCode] = useState('')
+  const [parsedScript, setParsedScript] = useState(null)
+  const [parseError, setParseError] = useState(null)
+  const [parameters, setParameters] = useState({})
+  const [executionError, setExecutionError] = useState(null)
+  const [visibility, setVisibility] = useState({})
+  const [orbitControls, setOrbitControls] = useState(null)
+
+  // DEBUG LOG: Confirm if the OrbitControls instance is being set in state.
+  useEffect(() => {
+    if (orbitControls) {
+      // console.log('[App.jsx] OrbitControls instance has been set in state successfully.');
+    }
+  }, [orbitControls]);
+  const handleRun = () => {
+    if (!code.trim()) {
+      setParseError('No code to parse')
+      setParsedScript(null)
+      return
+    }
+    
+    const result = parseScript(code)
+    
+    if (result.error) {
+      setParseError(result.error)
+      setParsedScript(null)
+    } else {
+      setParseError(null)
+      setParsedScript(result)
+      
+      // Initialize parameters with JSDoc defaults
+      const initialParams = {}
+      result.inputs.forEach(input => {
+        if (input.metadata && input.metadata.default !== undefined) {
+          initialParams[input.name] = input.metadata.default
+        }
+      })
+      setParameters(initialParams)
+      setExecutionError(null)
+    }
+  }
+
+  const handleClear = () => {
+    setCode('')
+    setParsedScript(null)
+    setParseError(null)
+    setParameters({})
+    setExecutionError(null)
+    setVisibility({})
+  }
+
+  const handlePasteFromClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText()
+      setCode(text)
+    } catch (err) {
+      console.error('Failed to read clipboard:', err)
+    }
+  }
+
+  const handleLoadSample = () => {
+    const sampleCode = `/**
+ * Creates a parametric box with customizable dimensions and styling
+ * @param {number} width - Width of the box [default=2, min=0.1, max=10, step=0.1]
+ * @param {number} height - Height of the box [default=1, min=0.1, max=10, step=0.1]
+ * @param {number} depth - Depth of the box [default=1, min=0.1, max=10, step=0.1]
+ * @returns {type: THREE.Object3D, name: "StyledBox", style: "filledThick", color: "Ocean", lineStyle: "solid"}
+ */
+function createStyledBox(width, height, depth) {
+  const geometry = new THREE.BoxGeometry(width, height, depth);
+  const material = new THREE.MeshStandardMaterial({ color: 0x888888 }); // This will be overridden by styling
+  
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.set(0, height/2, 0); // Position on ground
+  
+  return mesh;
+}`;
+    setCode(sampleCode)
+  }
+
+  const handleParameterChange = (paramName, newValue) => {
+    // console.log('handleParameterChange called:', paramName, newValue)
+    
+    setParameters(prev => {
+      const newParams = { ...prev, [paramName]: newValue }
+      // console.log('New parameters:', newParams)
+      return newParams
+    })
+  }
+
+  const handleLoadStyleSample = () => {
+    const sampleCode = `/**
+ * Demonstrates different styling options with multiple objects
+ * @param {number} radius - Radius of the sphere [default=1, min=0.1, max=3, step=0.1]
+ * @param {number} segments - Number of segments [default=16, min=8, max=32, step=1]
+ * @returns {type: THREE.Object3D, name: "FilledSphere", style: "filledThick", color: "Forest"}
+ * @returns {type: THREE.Object3D, name: "WireframeSphere", style: "wireframe", color: "Sunset", lineStyle: "dashed"}
+ * @returns {type: THREE.Object3D, name: "TransparentSphere", style: "transparentThick", color: "Grape"}
+ */
+function createMultiStyleSpheres(radius, segments) {
+  // Create three spheres with different positions
+  const filledGeometry = new THREE.SphereGeometry(radius, segments, segments);
+  const filledMesh = new THREE.Mesh(filledGeometry, new THREE.MeshStandardMaterial());
+  filledMesh.position.set(-3, radius, 0);
+  
+  const wireGeometry = new THREE.SphereGeometry(radius, segments, segments);
+  const wireMesh = new THREE.Mesh(wireGeometry, new THREE.MeshStandardMaterial());
+  wireMesh.position.set(0, radius, 0);
+  
+  const transGeometry = new THREE.SphereGeometry(radius, segments, segments);
+  const transMesh = new THREE.Mesh(transGeometry, new THREE.MeshStandardMaterial());
+  transMesh.position.set(3, radius, 0);
+  // Return as array to match the multiple @returns
+  return [filledMesh, wireMesh, transMesh];
+}`;
+    setCode(sampleCode)
+  }
+
+  const handleLoadInteractiveSample = () => {
+    const sampleCode = `/**
+ * Demonstrates interactive gizmos for point manipulation
+ * @param {number} radius - Radius of the connecting cylinder [default=0.1, min=0.05, max=0.5, step=0.01]
+ * @param {number[]} startPoint - Start point position [default=[0, 0, 0], interactive=true]
+ * @param {number[]} endPoint - End point position [default=[3, 2, 1], interactive=true]
+ * @returns {type: THREE.Object3D, name: "InteractiveLine", style: "filledThick", color: "Ocean"}
+ */
+function createInteractiveLine(radius, startPoint, endPoint) {
+  // Create a cylinder connecting the two points
+  const direction = new THREE.Vector3().subVectors(new THREE.Vector3(...endPoint), new THREE.Vector3(...startPoint));
+  const distance = direction.length();
+  
+  const geometry = new THREE.CylinderGeometry(radius, radius, distance);
+  const material = new THREE.MeshStandardMaterial();
+  const cylinder = new THREE.Mesh(geometry, material);
+  
+  // Position the cylinder between the points
+  const midpoint = new THREE.Vector3().addVectors(new THREE.Vector3(...startPoint), new THREE.Vector3(...endPoint)).multiplyScalar(0.5);
+  cylinder.position.copy(midpoint);
+  
+  // Rotate the cylinder to align with the direction
+  cylinder.lookAt(new THREE.Vector3(...endPoint));
+  cylinder.rotateX(Math.PI / 2);
+  
+  return cylinder;
+}`;
+    setCode(sampleCode)
+  }
+
+  return (
+    <div className="app">
+      {/* Leva Controls Panel */}
+      <Leva 
+        collapsed={false}
+        oneLineLabels={true}
+        titleBar={{ title: 'Parameters', drag: false }}
+      />
+      
+      {/* Leva Controls Component */}
+      {parsedScript && (
+        <LevaControls 
+          key={parsedScript.functionName}
+          parsedScript={parsedScript}
+          externalParameters={parameters}
+          onParametersChange={setParameters}
+          onVisibilityChange={setVisibility}
+        />
+      )}
+      
+      {/* Debug: Test Leva panel visibility */}
+      {!parsedScript && (
+        <TestLevaControls />
+      )}
+      
+      <div className="left-panel">
+        <div className="code-editor">
+          <div className="editor-controls">
+            <button onClick={handleRun}>Run</button>
+            <button onClick={handleClear}>Clear</button>
+            <button onClick={handlePasteFromClipboard}>Paste from Clipboard</button>
+            <button onClick={handleLoadSample}>Load Sample</button>
+            <button onClick={handleLoadStyleSample}>Load Style Sample</button>
+            <button onClick={handleLoadInteractiveSample}>Load Interactive Sample</button>
+          </div>
+          <CodeEditor
+            value={code}
+            onChange={setCode}
+            placeholder="Enter your JSDoc-annotated JavaScript code here..."
+          />
+          {parseError && (
+            <div className="error-display">
+              {parseError}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="right-panel">
+        <div className="scene-container">
+          <Canvas
+            camera={{ position: [5, 5, 5], fov: 50 }}
+            style={{ background: '#1a1a1a' }}
+          >
+            {/* Basic lighting setup */}
+            <ambientLight intensity={0.4} />
+            <directionalLight position={[10, 10, 5]} intensity={1} />
+            
+            {/* Ground grid for spatial reference */}
+            <Grid 
+              args={[20, 20]} 
+              cellSize={1} 
+              cellThickness={0.5} 
+              cellColor="#333" 
+              sectionSize={5} 
+              sectionThickness={1} 
+              sectionColor="#555"
+            />
+            
+            {/* Camera controls */}
+            <OrbitControls 
+              ref={setOrbitControls}
+              enablePan={true} 
+              enableZoom={true} 
+              enableRotate={true}
+              minDistance={1}
+              maxDistance={2000}
+            />
+            
+            {/* Render parsed geometry */}
+            <GeometryRenderer 
+              parsedScript={parsedScript} 
+              parameters={parameters}
+              visibility={visibility}
+              onExecutionError={setExecutionError}
+            />
+             
+            {/* Visualizer for interactive inputs */}
+            <InputVisualizer
+              parsedScript={parsedScript}
+              parameters={parameters}
+            />
+            
+            {/* Interactive gizmos for parameters */}
+            <GizmoController
+              parsedScript={parsedScript}
+              parameters={parameters}
+              onParameterChange={handleParameterChange}
+              controls={orbitControls}
+            />
+           </Canvas>
+          
+          {/* Debug info overlay */}
+          {parsedScript && (
+            <div style={{ 
+              position: 'absolute', 
+              top: '10px', 
+              left: '10px', 
+              background: 'rgba(0,0,0,0.7)', 
+              color: '#fff', 
+              padding: '10px', 
+              borderRadius: '4px',
+              fontSize: '12px',
+              maxWidth: '300px'
+            }}>
+              <div><strong>Function:</strong> {parsedScript.functionName}</div>
+              <div><strong>Inputs:</strong> {parsedScript.inputs.length}</div>
+              <div><strong>Outputs:</strong> {parsedScript.outputs.length}</div>
+            </div>
+          )}
+          
+          {/* Error overlay */}
+          {(parseError || executionError) && (
+            <div style={{ 
+              position: 'absolute', 
+              top: '50%', 
+              left: '50%', 
+              transform: 'translate(-50%, -50%)',
+              background: 'rgba(255, 68, 68, 0.9)', 
+              color: '#fff', 
+              padding: '20px', 
+              borderRadius: '8px',
+              fontSize: '14px',
+              textAlign: 'center',
+              maxWidth: '80%'
+            }}>
+              <strong>{parseError ? 'Parse Error' : 'Execution Error'}</strong><br />
+              {parseError || executionError}
+            </div>
+          )}
+          
+          {/* Empty state message */}
+          {!parsedScript && !parseError && !executionError && (
+            <div style={{ 
+              position: 'absolute', 
+              top: '50%', 
+              left: '50%', 
+              transform: 'translate(-50%, -50%)',
+              color: '#888',
+              fontSize: '18px',
+              textAlign: 'center'
+            }}>
+              Enter code and click Run to see 3D visualization
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default App
+
+
+<./src\index.css>
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+button:hover {
+  border-color: #646cff;
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+}
+
+
+<./src\main.jsx>
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App.jsx'
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+
+
+<./src\assets\react.svg>
+<svg xmlns="http://w
+................................
+
+<./src\components\CodeEditor.jsx>
+import { useCallback, useRef, useEffect } from 'react'
+import { Highlight, themes } from 'prism-react-renderer'
+
+function CodeEditor({ value = '', onChange, placeholder = 'Enter your code here...' }) {
+  const textareaRef = useRef(null)
+  const highlightRef = useRef(null)
+
+  const handleInput = useCallback((e) => {
+    onChange?.(e.target.value)
+  }, [onChange])
+
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      const textarea = e.target
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const spaces = '  '
+      
+      const newValue = value.slice(0, start) + spaces + value.slice(end)
+      onChange?.(newValue)
+      
+      requestAnimationFrame(() => {
+        textarea.selectionStart = textarea.selectionEnd = start + spaces.length
+      })
+    }
+  }, [value, onChange])
+
+  const handleScroll = useCallback((e) => {
+    if (highlightRef.current) {
+      highlightRef.current.scrollTop = e.target.scrollTop
+      highlightRef.current.scrollLeft = e.target.scrollLeft
+    }
+  }, [])
+
+  return (
+    <div className="code-editor-container">
+      <Highlight theme={themes.vsDark} code={value || ' '} language="javascript">
+        {({ className, style, tokens, getLineProps, getTokenProps }) => (
+          <pre
+            ref={highlightRef}
+            className={`code-editor-highlight ${className}`}
+            style={style}
+          >
+            {tokens.map((line, i) => (
+              <div key={i} {...getLineProps({ line })}>
+                {line.map((token, key) => (
+                  <span key={key} {...getTokenProps({ token })} />
+                ))}
+              </div>
+            ))}
+          </pre>
+        )}
+      </Highlight>
+      <textarea
+        ref={textareaRef}
+        className="code-editor-textarea"
+        value={value}
+        onChange={handleInput}
+        onKeyDown={handleKeyDown}
+        onScroll={handleScroll}
+        placeholder={placeholder}
+        spellCheck={false}
+        autoCapitalize="off"
+        autoComplete="off"
+        autoCorrect="off"
+      />
+    </div>
+  )
+}
+
+export default CodeEditor
+
+<./src\components\GeometryRenderer.jsx>
+import { useEffect, useState } from 'react'
+import * as THREE from 'three'
+import { createMaterialConfig, applyMaterialToObject, parseOutputStyling } from '../lib/materials.js'
+
+function GeometryRenderer({ parsedScript, parameters = {}, visibility = {}, onExecutionError }) {
+    const [renderableObjects, setRenderableObjects] = useState([])
+
+    useEffect(() => {
+        if (!parsedScript || !parsedScript.functionBody) {
+            setRenderableObjects([])
+            onExecutionError?.(null)
+            return
+        }
+
+        try {
+            const result = executeFunction(parsedScript, parameters)
+            onExecutionError?.(null)
+
+            if (!result) {
+                setRenderableObjects([])
+                return
+            }
+
+            const newRenderableObjects = []
+
+            if (typeof result === 'object' && result !== null && !result.isObject3D && !Array.isArray(result)) {
+                // Handle named map of outputs: { "Output1": geo1, "Output2": geo2 }
+                for (const [name, geometry] of Object.entries(result)) {
+                    const meta = parsedScript.outputs.find(o => o.name === name)
+                    if (geometry) {
+                        newRenderableObjects.push({ name, geometry, meta })
+                    }
+                }
+            } else {
+                // Handle single geometry or array of geometries
+                const resultArray = Array.isArray(result) ? result : [result]
+                resultArray.forEach((geometry, index) => {
+                    const meta = parsedScript.outputs?.[index]
+                    if (geometry && meta) {
+                        newRenderableObjects.push({ name: meta.name, geometry, meta })
+                    } else if (geometry) {
+                        // Fallback if metadata is missing
+                        newRenderableObjects.push({ name: `output${index}`, geometry, meta: null })
+                    }
+                })
+            }
+            
+            setRenderableObjects(newRenderableObjects)
+
+        } catch (error) {
+            console.error('Function execution error:', error)
+            onExecutionError?.(error.message)
+            setRenderableObjects([])
+        }
+    }, [parsedScript, parameters])
+
+    return (
+        <>
+            {renderableObjects.map(({ name, geometry, meta }, index) => {
+                const isVisible = visibility[`Show ${name}`] !== false // Default to visible
+
+                if (!isVisible) return null
+
+                const styling = parseOutputStyling(meta)
+                const materialConfig = createMaterialConfig(styling.style, styling.color, styling.lineStyle)
+                
+                // Apply materials to the geometry
+                const styledObject = applyMaterialToObject(geometry, materialConfig)
+
+                return (
+                    <primitive key={`${name}-${index}`} object={styledObject} />
+                )
+            })}
+        </>
+    )
+}
+
+/**
+ * Safely executes the user-provided function string.
+ * @param {object} parsedScript - The script object from the parser.
+ * @param {object} parameters - The current parameter values from Leva.
+ * @returns {any} The result of the executed function.
+ */
+function executeFunction(parsedScript, parameters) {
+    const { functionBody, argNames, inputs } = parsedScript
+
+    // Get arguments in the correct order, falling back to JSDoc defaults
+    const args = argNames.map(name => {
+        if (parameters[name] !== undefined) {
+            return parameters[name]
+        }
+        const input = inputs.find(i => i.name === name)
+        return input?.metadata?.default
+    })
+
+    // Validate that we have all required arguments
+    if (args.some(arg => arg === undefined)) {
+        console.warn('Some arguments are undefined, skipping execution.', { argNames, parameters })
+        return null
+    }
+
+    // Create the function safely. 'THREE' is exposed as the first argument.
+    const func = new Function('THREE', ...argNames, functionBody)
+
+    // Call the function, providing the THREE object and the arguments.
+    const result = func(THREE, ...args)
+
+    return result
+}
+
+
+export default GeometryRenderer
+
+
+
+<./src\components\GizmoController.jsx>
+import { useRef, useEffect, useState } from 'react'
+import { TransformControls } from '@react-three/drei'
+
+function GizmoController({ parsedScript, parameters, onParameterChange, controls }) {
+  if (!parsedScript || !parameters) {
+    return null
+  }
+
+  // Find all interactive parameters (Points and Polylines)
+  const interactiveParams = parsedScript.inputs.filter(input => 
+    input.metadata?.interactive && (input.type === 'number[]' || input.type === 'Array<number[]>')
+  )
+
+  if (interactiveParams.length === 0) {
+    return null
+  }
+
+  return (
+    <>
+      {interactiveParams.map((param) => {
+        const value = parameters[param.name] || param.metadata?.default;
+        if (!value || !Array.isArray(value) || value.length === 0) return null;
+
+        // Handle single Point: e.g., [x, y, z]
+        if (param.type === 'number[]' && typeof value[0] === 'number') {
+          return (
+            <InteractiveGizmo
+              key={param.name}
+              position={value}
+              onPositionChange={(newPosition) => onParameterChange(param.name, newPosition)}
+              controls={controls}
+            />
+          );
+        }
+
+        // Handle Polyline or Array of Polylines
+        if (param.type === 'Array<number[]>') {
+          // Case 1: A single polyline, e.g., [[x,y,z], [x,y,z]]
+          if (Array.isArray(value[0]) && typeof value[0][0] === 'number') {
+            return value.map((point, index) => {
+              const handlePointChange = (newPosition) => {
+                const newPolyline = [...value];
+                newPolyline[index] = newPosition;
+                onParameterChange(param.name, newPolyline);
+              };
+              return (
+                <InteractiveGizmo
+                  key={`${param.name}-${index}`}
+                  position={point}
+                  onPositionChange={handlePointChange}
+                  controls={controls}
+                />
+              );
+            });
+          }
+          
+          // Case 2: An array of polylines, e.g., [[[x,y,z]], [[x,y,z]]]
+          if (Array.isArray(value[0]) && Array.isArray(value[0][0]) && typeof value[0][0][0] === 'number') {
+            return value.map((polyline, polylineIndex) => 
+              polyline.map((point, pointIndex) => {
+                const handlePointChange = (newPosition) => {
+                  const newPolylines = JSON.parse(JSON.stringify(value)); // Deep copy for safety
+                  newPolylines[polylineIndex][pointIndex] = newPosition;
+                  onParameterChange(param.name, newPolylines);
+                };
+                return (
+                  <InteractiveGizmo
+                    key={`${param.name}-${polylineIndex}-${pointIndex}`}
+                    position={point}
+                    onPositionChange={handlePointChange}
+                    controls={controls}
+                  />
+                );
+              })
+            );
+          }
+        }
+        return null;
+      })}
+    </>
+  )
+}
+
+function InteractiveGizmo({ position, onPositionChange, controls }) {
+  const meshRef = useRef()
+  const [target, setTarget] = useState(null)
+
+  useEffect(() => {
+    setTarget(meshRef.current)
+  }, [])
+
+  useEffect(() => {
+    if (meshRef.current && Array.isArray(position) && position.length === 3) {
+      meshRef.current.position.fromArray(position)
+    }
+  }, [position])
+  
+  const handlePositionChange = () => {
+    if (meshRef.current) {
+      const newPosition = meshRef.current.position.toArray()
+      onPositionChange(newPosition)
+    }
+  }
+
+  const handleMouseDown = () => {
+    if (controls) {
+      controls.enabled = false;
+    }
+  }
+
+  const handleMouseUp = () => {
+    if (controls) {
+      controls.enabled = true;
+    }
+  }
+
+  const handleDraggingChange = (isDragging) => {
+    if (controls) {
+      controls.enabled = !isDragging;
+    }
+  }
+
+  if (!Array.isArray(position) || position.length !== 3) return null;
+
+  return (
+    <>
+      <mesh ref={meshRef} position={position}>
+        <sphereGeometry args={[0.15]} />
+        <meshStandardMaterial color="#ffff00" transparent opacity={0.8} />
+      </mesh>
+      
+      {target && (
+        <TransformControls
+          object={target}
+          mode="translate"
+          size={0.5}
+          onChange={handlePositionChange}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          onDraggingChanged={handleDraggingChange}
+        />
+      )}
+    </>
+  )
+}
+
+export default GizmoController
+
+
+<./src\components\InputVisualizer.jsx>
+import * as THREE from 'three';
+import { useMemo } from 'react';
+
+const yellowMaterial = new THREE.LineBasicMaterial({ color: '#ffff00' });
+
+function PolylineVisualizer({ points }) {
+  const geometry = useMemo(() => {
+    if (!points || points.length < 2) return new THREE.BufferGeometry();
+    const vectors = points.map(p => new THREE.Vector3(...p));
+    return new THREE.BufferGeometry().setFromPoints(vectors);
+  }, [points]);
+
+  return <line geometry={geometry} material={yellowMaterial} />;
+}
+
+function InputVisualizer({ parsedScript, parameters }) {
+  if (!parsedScript || !parameters) return null;
+
+  // We only need to visualize polylines, as single points are already shown by the gizmo spheres
+  const interactiveParams = parsedScript.inputs.filter(
+    (input) => input.metadata?.interactive && input.type === 'Array<number[]>'
+  );
+
+  if (interactiveParams.length === 0) return null;
+
+  return (
+    <>
+      {interactiveParams.map((param) => {
+        const value = parameters[param.name] || param.metadata?.default;
+        if (!value || !Array.isArray(value) || value.length === 0) return null;
+
+        // Case 1: A single polyline, e.g., [[x,y,z], [x,y,z]]
+        if (Array.isArray(value[0]) && typeof value[0][0] === 'number') {
+          return <PolylineVisualizer key={param.name} points={value} />;
+        }
+        
+        // Case 2: An array of polylines, e.g., [[[x,y,z]], [[x,y,z]]]
+        if (Array.isArray(value[0]) && Array.isArray(value[0][0]) && typeof value[0][0][0] === 'number') {
+          return value.map((polyline, polylineIndex) => (
+            <PolylineVisualizer key={`${param.name}-${polylineIndex}`} points={polyline} />
+          ));
+        }
+
+        return null;
+      })}
+    </>
+  );
+}
+
+export default InputVisualizer;
+
+<./src\components\LevaControls.jsx>
+import { useControls, folder } from 'leva'
+import { useEffect, useRef } from 'react'
+
+function LevaControls({ parsedScript, onParametersChange, onVisibilityChange, externalParameters }) {
+  const previousExternalParams = useRef({})
+  const isUpdatingFromExternal = useRef(false)
+  
+  // Generate Leva schema from parsed inputs
+  const schema = {}
+  const folders = {}
+
+  // Add input parameters, skipping interactive ones
+  parsedScript.inputs.forEach(input => {
+    const { name, type, metadata = {}, folder: folderName } = input
+    
+    // CRITICAL FIX: Skip creating Leva controls for interactive parameters,
+    // as they are handled by the GizmoController in the 3D viewport.
+    if (metadata.interactive) {
+      return; // Skips to the next input
+    }
+    
+    const currentValue = externalParameters?.[name] !== undefined ? externalParameters[name] : metadata.default
+    let control = {};
+
+    switch (type) {
+      case 'number':
+        control = {
+          value: currentValue !== undefined ? currentValue : 0,
+          min: metadata.min !== undefined ? metadata.min : 0,
+          max: metadata.max !== undefined ? metadata.max : 10,
+          step: metadata.step !== undefined ? metadata.step : 0.1
+        };
+        break
+        
+      case 'string':
+        control = { value: currentValue !== undefined ? currentValue : '' };
+        break
+        
+      case 'boolean':
+        control = { value: currentValue !== undefined ? currentValue : false };
+        break
+        
+      // Note: 'number[]' and 'Array<number[]>' are intentionally omitted
+      // because they are handled by the interactive check above.
+        
+      default:
+        return; // Skip unknown types
+    }
+
+    if (folderName) {
+        if (!folders[folderName]) folders[folderName] = {};
+        folders[folderName][name] = control;
+    } else {
+        schema[name] = control;
+    }
+  })
+
+  // Group controls into folders
+  for (const folderName in folders) {
+      schema[folderName] = folder(folders[folderName]);
+  }
+  
+  // Add output visibility toggles
+  if (parsedScript.outputs && parsedScript.outputs.length > 0) {
+    const visibilityControls = {};
+    parsedScript.outputs.forEach(output => {
+      visibilityControls[`Show ${output.name || 'output'}`] = true
+    })
+    schema['Visibility'] = folder(visibilityControls);
+  }
+  
+  const [values, set] = useControls(parsedScript.functionName, () => schema, [parsedScript.functionName]);
+  
+  // Sync external parameter changes (from gizmos) to Leva
+  useEffect(() => {
+    if (!externalParameters) return
+    
+    Object.entries(externalParameters).forEach(([paramName, paramValue]) => {
+      // Only update if the parameter exists in the schema (i.e., is not interactive)
+      if (schema[paramName] || Object.values(folders).some(f => f[paramName])) {
+        const prevValue = previousExternalParams.current[paramName]
+        if (JSON.stringify(prevValue) !== JSON.stringify(paramValue)) {
+          isUpdatingFromExternal.current = true
+          set({ [paramName]: paramValue })
+        }
+      }
+    })
+    
+    previousExternalParams.current = { ...externalParameters }
+  }, [externalParameters, set, schema, folders])
+
+  // Update parent component when Leva values change
+  useEffect(() => {
+    if (isUpdatingFromExternal.current) {
+      isUpdatingFromExternal.current = false
+      return
+    }
+    
+    const parameters = {}
+    const visibility = {}
+    
+    Object.entries(values).forEach(([key, value]) => {
+      if (key.startsWith('Show ')) {
+        visibility[key] = value
+      } else {
+        parameters[key] = value
+      }
+    })
+    
+    onParametersChange(parameters)
+    onVisibilityChange(visibility)
+
+  }, [values, onParametersChange, onVisibilityChange])
+
+  return null // Leva renders its own UI
+}
+
+export default LevaControls
+
+
+<./src\lib\constants.js>
+/**
+ * Constants for Grasshopper.js Sandbox
+ * Color palette and style definitions
+ */
+
+/**
+ * Predefined color palette with base, light, and dark variants
+ */
+export const COLOR_PALETTE = {
+  Ocean: {
+    name: 'Ocean',
+    base: '#0096C7',
+    light: '#48B5D8',
+    dark: '#0077A0'
+  },
+  Forest: {
+    name: 'Forest',
+    base: '#52B788',
+    light: '#79D1A7',
+    dark: '#41926D'
+  },
+  Sunset: {
+    name: 'Sunset',
+    base: '#F77F00',
+    light: '#F9A040',
+    dark: '#C56500'
+  },
+  Grape: {
+    name: 'Grape',
+    base: '#8338EC',
+    light: '#A269F0',
+    dark: '#682CC9'
+  },
+  Ruby: {
+    name: 'Ruby',
+    base: '#D62828',
+    light: '#E15B5B',
+    dark: '#AA2020'
+  },
+  Lemon: {
+    name: 'Lemon',
+    base: '#FCBF49',
+    light: '#FDD57A',
+    dark: '#C9983A'
+  },
+  Sky: {
+    name: 'Sky',
+    base: '#4CC9F0',
+    light: '#76D9F4',
+    dark: '#3C9FC0'
+  },
+  Blush: {
+    name: 'Blush',
+    base: '#FF7096',
+    light: '#FF94B2',
+    dark: '#CC5978'
+  }
+};
+
+/**
+ * Available rendering styles
+ */
+export const RENDER_STYLES = {
+  FILLED_THICK: 'filledThick',
+  WIREFRAME: 'wireframe',
+  TRANSPARENT_THICK: 'transparentThick',
+  TRANSPARENT_THIN: 'transparentThin'
+};
+
+/**
+ * Available line styles
+ */
+export const LINE_STYLES = {
+  SOLID: 'solid',
+  DASHED: 'dashed',
+  DOTTED: 'dotted'
+};
+
+/**
+ * Get color hex value by name and variant
+ * @param {string} colorName - Name of the color (Ocean, Forest, etc.)
+ * @param {string} variant - Variant (base, light, dark)
+ * @returns {string} Hex color value
+ */
+export function getColor(colorName, variant = 'base') {
+  const color = COLOR_PALETTE[colorName];
+  if (!color) {
+    console.warn(`Unknown color: ${colorName}, using Ocean as fallback`);
+    return COLOR_PALETTE.Ocean[variant] || COLOR_PALETTE.Ocean.base;
+  }
+  return color[variant] || color.base;
+}
+
+/**
+ * Get all available color names
+ * @returns {string[]} Array of color names
+ */
+export function getColorNames() {
+  return Object.keys(COLOR_PALETTE);
+}
+
+/**
+ * Validate if a color name exists in the palette
+ * @param {string} colorName - Color name to validate
+ * @returns {boolean} True if color exists
+ */
+export function isValidColor(colorName) {
+  return colorName in COLOR_PALETTE;
+}
+
+/**
+ * Validate if a render style is valid
+ * @param {string} style - Style to validate
+ * @returns {boolean} True if style is valid
+ */
+export function isValidRenderStyle(style) {
+  return Object.values(RENDER_STYLES).includes(style);
+}
+
+/**
+ * Validate if a line style is valid
+ * @param {string} lineStyle - Line style to validate
+ * @returns {boolean} True if line style is valid
+ */
+export function isValidLineStyle(lineStyle) {
+  return Object.values(LINE_STYLES).includes(lineStyle);
+}
+
+<./src\lib\materials.js>
+/**
+ * Material creation utilities for Grasshopper.js Sandbox
+ * Handles style and color application to Three.js geometries
+ */
+
+import * as THREE from 'three'
+import { COLOR_PALETTE, RENDER_STYLES, LINE_STYLES, getColor, isValidColor, isValidRenderStyle, isValidLineStyle } from './constants.js'
+
+/**
+ * Create material based on style and color specifications
+ * @param {string} style - Render style (filledThick, wireframe, transparentThick, transparentThin)
+ * @param {string} colorName - Color name from palette
+ * @param {string} lineStyle - Line style for wireframe/edges (solid, dashed, dotted)
+ * @returns {Object} Material configuration object
+ */
+export function createMaterialConfig(style = 'filledThick', colorName = 'Ocean', lineStyle = 'solid') {
+  // Validate inputs
+  if (!isValidRenderStyle(style)) {
+    console.warn(`Invalid render style: ${style}, using filledThick as fallback`)
+    style = RENDER_STYLES.FILLED_THICK
+  }
+
+  if (!isValidColor(colorName)) {
+    console.warn(`Invalid color: ${colorName}, using Ocean as fallback`)
+    colorName = 'Ocean'
+  }
+
+  if (!isValidLineStyle(lineStyle)) {
+    console.warn(`Invalid line style: ${lineStyle}, using solid as fallback`)
+    lineStyle = LINE_STYLES.SOLID
+  }
+
+  const baseColor = getColor(colorName, 'base')
+  const lightColor = getColor(colorName, 'light')
+  const darkColor = getColor(colorName, 'dark')
+
+  const config = {
+    style,
+    colorName,
+    lineStyle,
+    baseColor,
+    lightColor,
+    darkColor
+  }
+
+  switch (style) {
+    case RENDER_STYLES.FILLED_THICK:
+      return {
+        ...config,
+        meshMaterial: new THREE.MeshStandardMaterial({ 
+          color: baseColor,
+          metalness: 0.1,
+          roughness: 0.7
+        }),
+        edgeMaterial: new THREE.LineBasicMaterial({ 
+          color: darkColor,
+          linewidth: 2
+        }),
+        showEdges: true,
+        showFaces: true
+      }
+
+    case RENDER_STYLES.WIREFRAME:
+      return {
+        ...config,
+        lineMaterial: createLineMaterial(darkColor, lineStyle),
+        showEdges: true,
+        showFaces: false
+      }
+
+    case RENDER_STYLES.TRANSPARENT_THICK:
+      return {
+        ...config,
+        meshMaterial: new THREE.MeshStandardMaterial({ 
+          color: baseColor,
+          transparent: true,
+          opacity: 0.6,
+          metalness: 0.1,
+          roughness: 0.7
+        }),
+        edgeMaterial: new THREE.LineBasicMaterial({ 
+          color: darkColor,
+          linewidth: 2
+        }),
+        showEdges: true,
+        showFaces: true
+      }
+
+    case RENDER_STYLES.TRANSPARENT_THIN:
+      return {
+        ...config,
+        meshMaterial: new THREE.MeshStandardMaterial({ 
+          color: baseColor,
+          transparent: true,
+          opacity: 0.6,
+          metalness: 0.1,
+          roughness: 0.7
+        }),
+        edgeMaterial: new THREE.LineBasicMaterial({ 
+          color: darkColor,
+          linewidth: 1
+        }),
+        showEdges: true,
+        showFaces: true
+      }
+
+    default:
+      return config
+  }
+}
+
+/**
+ * Create line material based on line style
+ * @param {string} color - Hex color string
+ * @param {string} lineStyle - Line style (solid, dashed, dotted)
+ * @returns {THREE.Material} Line material
+ */
+function createLineMaterial(color, lineStyle) {
+  switch (lineStyle) {
+    case LINE_STYLES.SOLID:
+      return new THREE.LineBasicMaterial({ color })
+
+    case LINE_STYLES.DASHED:
+      return new THREE.LineDashedMaterial({ 
+        color,
+        scale: 5,
+        dashSize: 0.4,
+        gapSize: 0.2
+      })
+
+    case LINE_STYLES.DOTTED:
+      return new THREE.LineDashedMaterial({ 
+        color,
+        scale: 1,
+        dashSize: 0.02,
+        gapSize: 0.05
+      })
+
+    default:
+      return new THREE.LineBasicMaterial({ color })
+  }
+}
+
+/**
+ * Recursively applies material configuration to a Three.js object and its children.
+ * @param {THREE.Object3D} object - The object to style (Mesh, Line, Group, etc.).
+ * @param {Object} materialConfig - Material configuration from createMaterialConfig.
+ * @returns {THREE.Object3D} A new, styled object or group.
+ */
+export function applyMaterialToObject(object, materialConfig) {
+  // Base case 1: The object is a Line or LineSegments
+  if (object.isLine || object.isLineSegments) {
+    const clonedLine = object.clone();
+    clonedLine.material = materialConfig.lineMaterial || createLineMaterial(materialConfig.darkColor, materialConfig.lineStyle);
+    if (clonedLine.material.isLineDashedMaterial) {
+      clonedLine.geometry.computeLineDistances();
+    }
+    return clonedLine;
+  }
+
+  // Base case 2: The object is a Mesh
+  if (object.isMesh) {
+    const styledMeshGroup = new THREE.Group();
+    const clonedMesh = object.clone();
+
+    if (materialConfig.showFaces && materialConfig.meshMaterial) {
+      clonedMesh.material = materialConfig.meshMaterial;
+      styledMeshGroup.add(clonedMesh);
+    }
+
+    if (materialConfig.showEdges) {
+      const edges = createEdgesFromObject(clonedMesh, materialConfig);
+      if (edges) {
+        styledMeshGroup.add(edges);
+      }
+    }
+    
+    if (styledMeshGroup.children.length === 0 && !materialConfig.showFaces) {
+        // Handle wireframe style for a mesh
+        return createEdgesFromObject(clonedMesh, materialConfig) || styledMeshGroup;
+    }
+
+    return styledMeshGroup.children.length > 1 ? styledMeshGroup : styledMeshGroup.children[0] || styledMeshGroup;
+  }
+
+  // Recursive case: The object is a Group
+  if (object.isGroup) {
+    const newGroup = new THREE.Group();
+    // Copy transformation properties
+    newGroup.position.copy(object.position);
+    newGroup.rotation.copy(object.rotation);
+    newGroup.scale.copy(object.scale);
+
+    for (const child of object.children) {
+      // Recursively style each child and add the result to the new group
+      newGroup.add(applyMaterialToObject(child, materialConfig));
+    }
+    return newGroup;
+  }
+
+  // Fallback for other object types (lights, cameras, etc.)
+  return object.clone();
+}
+
+
+/**
+ * Create edges geometry from a Three.js object
+ * @param {THREE.Object3D} object - Source object
+ * @param {Object} materialConfig - Material configuration
+ * @returns {THREE.Group|null} Edges group or null if no edges are created
+ */
+function createEdgesFromObject(object, materialConfig) {
+  const edgesGroup = new THREE.Group()
+  
+  object.traverse((child) => {
+    if (child.isMesh && child.geometry && child.geometry.attributes.position && child.geometry.attributes.position.count > 0) {
+      try {
+        const edges = new THREE.EdgesGeometry(child.geometry);
+        const lineMaterial = materialConfig.edgeMaterial || materialConfig.lineMaterial;
+        if (!lineMaterial) return;
+        
+        let lineObject;
+        if (lineMaterial.isLineDashedMaterial) {
+          lineObject = new THREE.LineSegments(edges, lineMaterial);
+          lineObject.computeLineDistances();
+        } else {
+          lineObject = new THREE.LineSegments(edges, lineMaterial);
+        }
+        
+        // Copy transform from original mesh
+        lineObject.position.copy(child.position);
+        lineObject.rotation.copy(child.rotation);
+        lineObject.scale.copy(child.scale);
+        
+        edgesGroup.add(lineObject);
+      } catch (error) {
+        console.warn("Could not generate edges for a geometry, it might be invalid.", error);
+      }
+    }
+  })
+  
+  return edgesGroup.children.length > 0 ? edgesGroup : null
+}
+
+/**
+ * Parse @returns metadata to extract styling information
+ * @param {Object} outputParam - Output parameter from parser
+ * @returns {Object} Styling configuration
+ */
+export function parseOutputStyling(outputParam) {
+  const defaults = {
+    style: RENDER_STYLES.FILLED_THICK,
+    color: 'Ocean',
+    lineStyle: LINE_STYLES.SOLID
+  }
+
+  if (!outputParam) {
+    return defaults
+  }
+
+  return {
+    style: outputParam.style || defaults.style,
+    color: outputParam.color || defaults.color,
+    lineStyle: outputParam.lineStyle || defaults.lineStyle
+  }
+}
+
+
+<./src\lib\parser.js>
+/**
+ * JSDoc Parser for Grasshopper.js Sandbox
+ * Extracts function metadata, parameters, and return information from JSDoc-annotated JavaScript code
+ */
+
+import { isValidColor, isValidRenderStyle, isValidLineStyle } from './constants.js';
+
+/**
+ * Parses JSDoc-annotated JavaScript code and extracts function metadata
+ * @param {string} code - The JavaScript code to parse
+ * @returns {Object} Parsed script object with inputs, outputs, and function details
+ */
+export function parseScript(code) {
+  // console.log('=== PARSING SCRIPT ===');
+  // console.log('Code:', code);
+  try {
+    // Extract function declaration and JSDoc comments
+    const functionMatch = extractFunctionWithJSDoc(code);
+    if (!functionMatch) {
+      throw new Error('No function declaration with a preceding JSDoc comment was found.');
+    }
+
+    const { jsDoc, functionDeclaration, functionName, parameters } = functionMatch;
+    // Parse JSDoc comments
+    const inputs = parseInputParameters(jsDoc);
+    const outputs = parseOutputParameters(jsDoc);
+    // Extract function body
+    const functionBody = extractFunctionBody(functionDeclaration);
+
+    return {
+      inputs,
+      outputs,
+      functionBody,
+      argNames: parameters,
+      functionName,
+      error: null
+    };
+  } catch (error) {
+    return {
+      inputs: [],
+      outputs: [],
+      functionBody: '',
+      argNames: [],
+      functionName: '',
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Extracts function declaration with its JSDoc comment
+ * @param {string} code - The JavaScript code
+ * @returns {Object|null} Function match object or null if not found
+ */
+function extractFunctionWithJSDoc(code) {
+  // Match JSDoc comment followed by function declaration
+  const functionRegex = /\/\*\*([\s\S]*?)\*\/\s*((?:async\s+)?(?:export\s+)?(?:function\s+(\w+)\s*\(([^)]*)\)|const\s+(\w+)\s*=\s*(?:async\s*)?(?:function\s*)?\(([^)]*)\)\s*=>|const\s+(\w+)\s*=\s*function\s*\(([^)]*)\)))/;
+  const match = code.match(functionRegex);
+  if (!match) {
+    return null;
+  }
+
+  const jsDoc = match[1];
+  const functionSignature = match[2];
+  const functionName = match[3] || match[5] || match[7];
+  const parameters = (match[4] || match[6] || match[8] || '').split(',').map(p => p.trim().split(/\s+/)[0]).filter(p => p);
+
+  // Find where the function signature starts in the original code to get the body
+  const functionSignatureStart = code.indexOf(functionSignature);
+  const functionBodyBlock = extractCompleteFunction(code, functionSignatureStart + functionSignature.length);
+  
+  return {
+    jsDoc,
+    functionDeclaration: functionSignature + functionBodyBlock,
+    functionName,
+    parameters
+  };
+}
+
+/**
+ * Extracts the complete function body including nested braces, ignoring comments.
+ * @param {string} code - Code string to parse
+ * @param {number} startIndex - Index to start searching from, typically after the function signature `)`.
+ * @returns {string} Complete function body, including the outer braces.
+ */
+function extractCompleteFunction(code, startIndex) {
+    let braceCount = 0;
+    let inString = false;
+    let stringChar = '';
+    let inBlockComment = false;
+    let inLineComment = false;
+
+    // Find the first opening brace
+    const firstBraceIndex = code.indexOf('{', startIndex);
+    if (firstBraceIndex === -1) return '';
+
+    let functionBody = '';
+    for (let i = firstBraceIndex; i < code.length; i++) {
+        const char = code[i];
+        const nextChar = code[i + 1] || '';
+        functionBody += char;
+
+        if (inString) {
+            if (char === '\\') { // Skip escaped characters
+                i++; 
+                functionBody += nextChar; 
+                continue;
+            }
+            if (char === stringChar) inString = false;
+            continue;
+        }
+
+        if (inBlockComment) {
+            if (char === '*' && nextChar === '/') { inBlockComment = false; i++; functionBody += nextChar; }
+            continue;
+        }
+
+        if (inLineComment) {
+            if (char === '\n') inLineComment = false;
+            continue;
+        }
+
+        if (char === '/' && nextChar === '*') { inBlockComment = true; i++; functionBody += nextChar; continue; }
+        if (char === '/' && nextChar === '/') { inLineComment = true; i++; functionBody += nextChar; continue; }
+        
+        if (char === '"' || char === "'" || char === '`') { inString = true; stringChar = char; continue; }
+
+        if (char === '{') {
+            braceCount++;
+        } else if (char === '}') {
+            braceCount--;
+            if (braceCount === 0) {
+                break;
+            }
+        }
+    }
+    return functionBody;
+}
+
+
+/**
+ * Extracts function body content (without the outer braces)
+ * @param {string} functionDeclaration - Complete function declaration
+ * @returns {string} Function body content
+ */
+function extractFunctionBody(functionDeclaration) {
+  const bodyStart = functionDeclaration.indexOf('{');
+  const bodyEnd = functionDeclaration.lastIndexOf('}');
+  
+  if (bodyStart === -1 || bodyEnd === -1) {
+    throw new Error('Invalid function syntax: missing braces');
+  }
+  
+  return functionDeclaration.slice(bodyStart + 1, bodyEnd).trim();
+}
+
+/**
+ * Parses input parameters from JSDoc comments
+ * @param {string} jsDoc - JSDoc comment content
+ * @returns {Array} Array of input parameter objects
+ */
+function parseInputParameters(jsDoc) {
+  const inputs = [];
+  let currentFolder = null;
+  
+  // Split JSDoc into lines and process each
+  const lines = jsDoc.split('\n').map(line => line.trim().replace(/^\*\s?/, ''));
+  for (const line of lines) {
+    // Check for @folder tag
+    const folderMatch = line.match(/@folder\s+(.+)/);
+    if (folderMatch) {
+      currentFolder = folderMatch[1].trim();
+      continue;
+    }
+    
+    // Check for @param tag - match everything after the dash as description/metadata
+    const paramMatch = line.match(/@param\s+\{([^}]+)\}\s+(\w+)(?:\s*-\s*(.+))?/);
+    if (paramMatch) {
+      const [, type, name, fullContent = ''] = paramMatch;
+      // Extract metadata from brackets at the end - handle nested brackets
+      let description = fullContent;
+      let metadataStr = '';
+      
+      const metadataMatch = fullContent.match(/^(.*?)\s*\[(.*)\]\s*$/);
+      if (metadataMatch) {
+        description = metadataMatch[1].trim();
+        metadataStr = metadataMatch[2];
+      }
+      
+      // Debug logging
+      // console.log(`Parsing param: ${name}, type: ${type}, description: "${description}", metadataStr: "${metadataStr}"`);
+      // console.log('Full line:', line);
+      
+      const input = {
+        name,
+        type: normalizeType(type),
+        folder: currentFolder,
+        description: description.trim(),
+        metadata: parseMetadata(metadataStr, type)
+      };
+      // console.log(`Parsed metadata for ${name}:`, input.metadata);
+      
+      inputs.push(input);
+    }
+  }
+  
+  return inputs;
+}
+
+/**
+ * Parses output parameters from JSDoc @returns comments
+ * @param {string} jsDoc - JSDoc comment content
+ * @returns {Array} Array of output parameter objects
+ */
+function parseOutputParameters(jsDoc) {
+  const outputs = [];
+  // Match all @returns with object type specification
+  const returnsMatches = jsDoc.matchAll(/@returns\s+\{([^}]+)\}/g);
+  for (const match of returnsMatches) {
+    const returnsType = match[1];
+    // Parse object-style returns: {type: THREE.Object3D, name: "name", ...}
+    if (returnsType.includes('type:')) {
+      const output = parseObjectReturns(returnsType);
+      if (output) {
+        outputs.push(output);
+      }
+    }
+  }
+  
+  return outputs;
+}
+
+/**
+ * Parses object-style @returns specification
+ * @param {string} returnsType - The returns type specification
+ * @returns {Object|null} Parsed output object or null
+ */
+function parseObjectReturns(returnsType) {
+  try {
+    const output = {};
+    // Use regex to capture key-value pairs, handling quoted strings
+    const pairRegex = /(\w+):\s*("([^"]*)"|([^,}]+))/g;
+    let match;
+    while ((match = pairRegex.exec(returnsType)) !== null) {
+      const key = match[1];
+      const value = match[3] || match[4]; // Group 3 is for quoted strings, 4 is for unquoted
+      output[key.trim()] = value.trim();
+    }
+    
+    // Set defaults if not specified
+    output.name = output.name || 'output';
+    output.style = output.style || 'filledThick';
+    output.color = output.color || 'Ocean';
+    
+    // Validate values
+    if (!isValidRenderStyle(output.style)) {
+      console.warn(`Invalid render style: ${output.style}, using filledThick as fallback`);
+      output.style = 'filledThick';
+    }
+    
+    if (!isValidColor(output.color)) {
+      console.warn(`Invalid color: ${output.color}, using Ocean as fallback`);
+      output.color = 'Ocean';
+    }
+    
+    if (output.lineStyle && !isValidLineStyle(output.lineStyle)) {
+      console.warn(`Invalid line style: ${output.lineStyle}, using solid as fallback`);
+      output.lineStyle = 'solid';
+    }
+    
+    return output;
+  } catch (error) {
+    console.warn('Failed to parse object returns:', error);
+    return null;
+  }
+}
+
+/**
+ * Normalizes parameter types to standard format
+ * @param {string} type - Raw type from JSDoc
+ * @returns {string} Normalized type
+ */
+function normalizeType(type) {
+  const cleanType = type.trim();
+  // Handle array types
+  if (cleanType.includes('Array<number[]>')) {
+    return 'Array<number[]>';
+  }
+  if (cleanType.includes('number[]')) {
+    return 'number[]';
+  }
+  if (cleanType.includes('THREE.')) {
+    return cleanType;
+  }
+  
+  // Handle basic types
+  if (cleanType.includes('number')) {
+    return 'number';
+  }
+  if (cleanType.includes('string')) {
+    return 'string';
+  }
+  if (cleanType.includes('boolean')) {
+    return 'boolean';
+  }
+  
+  return cleanType;
+}
+
+/**
+ * Parses metadata from JSDoc parameter annotations
+ * @param {string} metadataStr - Metadata string from JSDoc
+ * @param {string} type - Parameter type
+ * @returns {Object} Parsed metadata object
+ */
+function parseMetadata(metadataStr, type) {
+  const metadata = {};
+  if (!metadataStr) {
+    return metadata;
+  }
+  
+  // Handle array defaults specially - they contain commas that shouldn't be split
+  let pairs = [];
+  let currentPair = '';
+  let bracketCount = 0;
+  
+  for (let i = 0; i < metadataStr.length; i++) {
+    const char = metadataStr[i];
+    
+    if (char === '[') bracketCount++;
+    if (char === ']') bracketCount--;
+    
+    if (char === ',' && bracketCount === 0) {
+      pairs.push(currentPair.trim());
+      currentPair = '';
+      continue;
+    }
+    
+    currentPair += char;
+  }
+  
+  if (currentPair.trim()) {
+    pairs.push(currentPair.trim());
+  }
+  
+  for (const pair of pairs) {
+    const [key, ...valueParts] = pair.split('=');
+    const value = valueParts.join('=').trim();
+    
+    if (!value) {
+        if (key.trim() === 'interactive') metadata.interactive = true;
+        continue;
+    }
+
+    if (key.trim() === 'default') {
+        metadata.default = parseDefaultValue(value, type);
+    } else if (key.trim() === 'min') {
+        metadata.min = parseFloat(value);
+    } else if (key.trim() === 'max') {
+        metadata.max = parseFloat(value);
+    } else if (key.trim() === 'step') {
+        metadata.step = parseFloat(value);
+    } else if (key.trim() === 'interactive') {
+        metadata.interactive = value.toLowerCase() === 'true';
+    }
+  }
+  
+  return metadata;
+}
+
+/**
+ * Parses default values based on parameter type
+ * @param {string} value - Raw default value string
+ * @param {string} type - Parameter type
+ * @returns {any} Parsed default value
+ */
+function parseDefaultValue(value, type) {
+  const cleanValue = value.trim();
+  if (type === 'number') {
+    return parseFloat(cleanValue);
+  }
+  
+  if (type === 'boolean') {
+    return cleanValue.toLowerCase() === 'true';
+  }
+  
+  if (type === 'string') {
+    // Remove quotes if present
+    return cleanValue.replace(/^["']|["']$/g, '');
+  }
+  
+  if (type === 'number[]' || type === 'Array<number[]>') {
+    try {
+      // Parse array notation [1, 2, 3] or [[1,2,3], [4,5,6]]
+      return JSON.parse(cleanValue);
+    } catch (error) {
+      console.warn('Failed to parse array default value:', cleanValue);
+      return type === 'number[]' ? [0, 0, 0] : [[0, 0, 0]];
+    }
+  }
+  
+  return cleanValue;
+}
+

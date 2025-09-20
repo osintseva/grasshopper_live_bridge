@@ -12,61 +12,52 @@ exclude_folders = [
     "dist",
     "build",
     ".gpt",
-    "obj",
-    "bin",
-    "obj",
-    "dist",
-    ".git",
-    "tools",
 ]
 
 # Allowed file extensions
 allowed_extensions = (
-    ".cjs",
-    ".class",
-    ".conf",
-    ".cfg",
-    ".css",
-    ".cs",
-    ".csproj",
-    ".dockerfile",
-    ".env",
-    ".gitignore",
-    ".htm",
-    ".html",
-    ".ini",
-    ".java",
-    ".js",
-    ".json1",
-    ".jsonl",
-    ".jsp",
-    ".jspx",
-    ".jsx",
-    ".less",
-    ".log",
-    ".md",
-    ".mjs",
-    ".pyd",
-    ".py",
-    ".pyc",
-    ".pxd",
-    ".pxi",
-    ".pyw",
-    ".pyx",
-    ".pyo",
-    ".sass",
-    ".scss",
-    ".sh",
-    ".sln",
-    ".srt",
-    ".svelte",
-    ".ts",
-    ".tsx",
     ".txt",
-    ".vue",
-    ".xhtml",
     ".yaml",
     ".yml",
+    ".jsonl",
+    ".ini",
+    ".sh",
+    ".env",
+    ".cfg",
+    ".conf",
+    ".log",
+    ".srt",
+    ".md",
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".mjs",
+    ".cjs",
+    ".vue",
+    ".svelte",
+    ".html",
+    ".htm",
+    ".xhtml",
+    ".css",
+    ".scss",
+    ".sass",
+    ".less",
+    ".java",
+    ".class",
+    ".jsp",
+    ".jspx",
+    ".py",
+    ".pyw",
+    ".pyx",
+    ".pxd",
+    ".pxi",
+    ".pyc",
+    ".pyo",
+    ".pyd",
+    "Dockerfile",
+    ".gitignore",
+    ".md",
 )
 
 
@@ -100,7 +91,7 @@ def generate_tree(directory, prefix=""):
 # directory_tree = generate_tree("./compute.rhino3d/src")
 
 # Write the tree structure and filtered list of objects to 'dump.txt'
-with open("./tools/dump.txt", "w", encoding="utf-8") as f:
+with open("./.gpt/dump.txt", "w", encoding="utf-8") as f:
     # Write the directory tree at the beginning
     # f.write("&&& DIRECTORY TREE &&&\n\n")
     # f.write("\n".join(directory_tree) + "\n\n")
@@ -123,10 +114,6 @@ with open("./tools/dump.txt", "w", encoding="utf-8") as f:
                 with open(obj, "r", encoding="utf-8") as o:
                     if obj.endswith(allowed_extensions):
                         content = o.read()
-                        if len(content) > 50000:
-                            content = (
-                                content[:50000] + "\n................................"
-                            )
                     else:
                         content = o.read()[:20] + "\n................................"
                     f.write("<" + obj + ">\n" + content + "\n\n")
