@@ -47,6 +47,7 @@ When you encounter components whose purpose is unclear:
 - Use present tense for algorithm description
 - Include actual component variable names throughout the text
 - Structure explanations by algorithm logic, not code order
+- **Maximum 5000 characters total** - prioritize most important algorithm aspects
 
 ## 🎯 **Example Structure:**
 
