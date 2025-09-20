@@ -158,16 +158,8 @@ export class GrasshopperClient extends EventEmitter {
 
   async getCanvasState(includeSelection = false) {
     const response = await this.send('get_canvas_info', { includeSelection });
-    
-    // Parse the data if it's a string
-    if (response.data && typeof response.data === 'string') {
-      try {
-        return JSON.parse(response.data);
-      } catch {
-        return response.data;
-      }
-    }
-    
+
+    // Return pseudocode data directly as string
     return response.data || response;
   }
 

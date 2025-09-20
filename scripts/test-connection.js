@@ -115,7 +115,13 @@ function run() {
     try {
       const msg = JSON.parse(data.toString());
       if (msg.action === 'get_canvas_info_response' && msg.data) {
-        console.log('<<', JSON.stringify(msg, null, 2));
+        // Display pseudocode response nicely
+        console.log('<<', {
+          action: msg.action,
+          correlationId: msg.correlationId,
+          status: msg.status,
+          data: typeof msg.data === 'string' ? `[PSEUDOCODE]\n${msg.data}` : msg.data
+        });
       } else {
         console.log('<<', msg);
       }

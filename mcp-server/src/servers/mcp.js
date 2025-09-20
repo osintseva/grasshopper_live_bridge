@@ -74,14 +74,14 @@ export function createMcpServer(config = {}) {
           },
         },
         {
-          name: "query_canvas_json",
-          description: "Query canvas JSON data using JSONPath-like expressions",
+          name: "query_canvas_pseudocode",
+          description: "Query canvas pseudocode using text search, regex, or wildcards",
           inputSchema: {
             type: "object",
             properties: {
               query: {
                 type: "string",
-                description: "JSONPath query (e.g., '$.Components[0].Name')"
+                description: "Search query (text, regex /pattern/, or wildcard with *)"
               },
               source: {
                 type: "string",
@@ -95,6 +95,21 @@ export function createMcpServer(config = {}) {
               }
             },
             required: ["query"],
+            additionalProperties: false,
+          },
+        },
+        {
+          name: "analyze_pseudocode",
+          description: "Analyze the canvas pseudocode and prepare it for technical specification generation",
+          inputSchema: {
+            type: "object",
+            properties: {
+              includePrompt: {
+                type: "boolean",
+                description: "Include the analysis prompt in the response",
+                default: false
+              }
+            },
             additionalProperties: false,
           },
         },
@@ -305,8 +320,12 @@ export function createMcpServer(config = {}) {
           result = await canvasTools.getSelection(args || {});
           break;
         
-        case "query_canvas_json":
-          result = await canvasTools.queryCanvasJson(args || {});
+        case "query_canvas_pseudocode":
+          result = await canvasTools.queryCanvasPseudocode(args || {});
+          break;
+
+        case "analyze_pseudocode":
+          result = await canvasTools.analyzePseudocode(args || {});
           break;
         
         case "get_component_info":

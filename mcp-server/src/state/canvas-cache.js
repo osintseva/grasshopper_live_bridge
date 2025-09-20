@@ -72,21 +72,34 @@ export class CanvasCache {
 
   async getComponentInfo(componentUuid) {
     const cacheKey = `component-${componentUuid}`;
-    
+
     const cached = this.store.getCache(cacheKey);
     if (cached) {
       return cached;
     }
 
-    // Get full canvas and extract component
-    const canvas = await this.getCanvas();
-    const component = canvas.Components?.find(c => c.InstanceGuid === componentUuid);
-    
-    if (component) {
+    // Get full canvas pseudocode and search for component by UUID
+    const pseudocode = await this.getCanvas();
+
+    // Extract component info from pseudocode using regex
+    // Look for variable names that contain the first 8 chars of UUID
+    const shortUuid = componentUuid.replace(/-/g, '').substring(0, 8);
+    const regex = new RegExp(`(\\w+_${shortUuid}):\\s*([\\w\\[\\],]+)\\s*=\\s*([^\\(]+)\\([^\\)]*\\)`, 'g');
+
+    let match;
+    while ((match = regex.exec(pseudocode)) !== null) {
+      const component = {
+        InstanceGuid: componentUuid,
+        VariableName: match[1],
+        TypeName: match[2],
+        Name: match[3]
+      };
+
       this.store.setCache(cacheKey, component, this.ttlMs);
+      return component;
     }
-    
-    return component || null;
+
+    return null;
   }
 
   invalidate(key = null) {

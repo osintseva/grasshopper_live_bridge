@@ -196,6 +196,9 @@ namespace LiveCoding
 
         private const int PREVIEW_CHAR_LIMIT = 20;
         private const int FULL_DATA_CHAR_LIMIT = 10000;
+        private const bool INCLUDE_DATA_PREVIEWS = false; // Set to false to disable inline comments with data previews
+        private const int DATA_PREVIEW_LIMIT = 100;
+        private const int UUID_LENGTH = 8; // First 8 chars of UUID
 
         private void GetCanvasInfo(GH_Document doc, string correlationId = null)
         {
@@ -208,22 +211,29 @@ namespace LiveCoding
                     return;
                 }
 
-                var definition = new CompactGhDefinition();
+                var components = new List<PseudocodeComponent>();
                 var docObjects = doc.Objects.ToList();
                 var guidToIndexMap = docObjects.Select((obj, i) => new { obj.InstanceGuid, i }).ToDictionary(x => x.InstanceGuid, x => x.i);
+                var usedUuids = new HashSet<string>();
 
+                // Parse all components
                 for (int i = 0; i < docObjects.Count; i++)
                 {
                     var obj = docObjects[i];
-                    var myComponent = new CompactGhComponent { Id = i };
+                    var comp = new PseudocodeComponent
+                    {
+                        Id = i,
+                        Guid = obj.InstanceGuid
+                    };
 
                     if (obj is IGH_Component ghComponent)
                     {
-                        myComponent.Name = ghComponent.Name;
-                        myComponent.NickName = ghComponent.NickName;
-                        myComponent.Description = ghComponent.Description;
-                        myComponent.IsComponent = true;
+                        comp.Name = ghComponent.Name;
+                        comp.NickName = ghComponent.NickName;
+                        comp.Description = ghComponent.Description;
+                        comp.IsComponent = true;
 
+                        // Parse inputs
                         foreach (var inputParam in ghComponent.Params.Input)
                         {
                             var connections = new List<int[]>();
@@ -236,68 +246,28 @@ namespace LiveCoding
                                     if (sourceParamIndex > -1) connections.Add(new int[] { sourceId, sourceParamIndex });
                                 }
                             }
-                            myComponent.Inputs.Add(new GhInputParameter { Name = inputParam.Name, TypeName = inputParam.TypeName, Connections = connections });
+                            comp.Inputs.Add(new PseudocodeInput { Name = inputParam.Name, TypeName = inputParam.TypeName, Connections = connections });
                         }
 
-                        bool isSourceComponent = !ghComponent.Params.Input.Any(p => p.Sources.Any());
-                        myComponent.Outputs = ghComponent.Params.Output.Select(p =>
-                        {
-                            bool isUnconnectedOutput = p.Recipients.Count == 0;
-                            bool showFullData = isSourceComponent || isUnconnectedOutput;
-
+                        // Parse outputs
+                        comp.Outputs = ghComponent.Params.Output.Select(p => {
                             var data = p.VolatileData.AllData(true);
-                            var sb = new StringBuilder();
-                            foreach (var goo in data)
-                            {
-                                if (sb.Length > 0) sb.Append(", ");
-                                sb.Append(GetDataPreviewString(goo));
-                                if (!showFullData && sb.Length > PREVIEW_CHAR_LIMIT)
-                                {
-                                    sb.Length = PREVIEW_CHAR_LIMIT;
-                                    sb.Append("...");
-                                    break;
-                                }
-                            }
-                            string dataPreview = sb.ToString();
-                            if (showFullData && dataPreview.Length > FULL_DATA_CHAR_LIMIT)
-                            {
-                                dataPreview = dataPreview.Substring(0, FULL_DATA_CHAR_LIMIT) + "...";
-                            }
+                            var dataPreview = data.Any() ? string.Join(", ", data.Select(GetCompactDataPreview)) : "null";
 
-                            return new GhOutputParameter { Name = p.Name, TypeName = p.TypeName, DataPreview = dataPreview };
+                            return new PseudocodeOutput { Name = p.Name, TypeName = p.TypeName, DataPreview = dataPreview, HasRecipients = p.Recipients.Count > 0 };
                         }).ToList();
                     }
                     else if (obj is IGH_Param ghParam)
                     {
-                        myComponent.Name = ghParam.Name;
-                        myComponent.NickName = ghParam.NickName;
-                        myComponent.Description = ghParam.Description;
-                        myComponent.IsComponent = false;
-
-                        bool isSourceParam = ghParam.Sources.Count == 0;
-                        bool isUnconnectedOutput = ghParam.Recipients.Count == 0;
-                        bool showFullData = isSourceParam || isUnconnectedOutput;
+                        comp.Name = ghParam.Name;
+                        comp.NickName = ghParam.NickName;
+                        comp.Description = ghParam.Description;
+                        comp.IsComponent = false;
 
                         var data = ghParam.VolatileData.AllData(true);
-                        var sb = new StringBuilder();
-                        foreach (var goo in data)
-                        {
-                            if (sb.Length > 0) sb.Append(", ");
-                            sb.Append(GetDataPreviewString(goo));
-                            if (!showFullData && sb.Length > PREVIEW_CHAR_LIMIT)
-                            {
-                                sb.Length = PREVIEW_CHAR_LIMIT;
-                                sb.Append("...");
-                                break;
-                            }
-                        }
-                        string dataPreview = sb.ToString();
-                        if (showFullData && dataPreview.Length > FULL_DATA_CHAR_LIMIT)
-                        {
-                            dataPreview = dataPreview.Substring(0, FULL_DATA_CHAR_LIMIT) + "...";
-                        }
+                        var dataPreview = data.Any() ? string.Join(", ", data.Select(GetCompactDataPreview)) : "null";
 
-                        myComponent.Outputs.Add(new GhOutputParameter { Name = ghParam.Name, TypeName = ghParam.TypeName, DataPreview = dataPreview });
+                        comp.Outputs.Add(new PseudocodeOutput { Name = ghParam.Name, TypeName = ghParam.TypeName, DataPreview = dataPreview, HasRecipients = ghParam.Recipients.Count > 0 });
 
                         if (ghParam.Sources.Any())
                         {
@@ -311,50 +281,140 @@ namespace LiveCoding
                                     if (sourceParamIndex > -1) connections.Add(new int[] { sourceId, sourceParamIndex });
                                 }
                             }
-                            myComponent.Inputs.Add(new GhInputParameter { Name = "Input", TypeName = ghParam.TypeName, Connections = connections });
+                            comp.Inputs.Add(new PseudocodeInput { Name = "Input", TypeName = ghParam.TypeName, Connections = connections });
                         }
                     }
-                    definition.Components.Add(myComponent);
+
+                    components.Add(comp);
                 }
 
-                LogDebug($"Found {docObjects.Count} objects in document");
-
-                string jsonResult = JsonConvert.SerializeObject(definition, Formatting.Indented);
-                LogDebug($"JSON serialized, length: {jsonResult.Length}");
-
-                // If data is too large, create a summary instead
-                const int MAX_SAFE_SIZE = 50000; // 50KB safe limit
-                if (jsonResult.Length > MAX_SAFE_SIZE)
+                // Generate variable names for all components
+                foreach (var comp in components)
                 {
-                    LogDebug($"Canvas data too large ({jsonResult.Length} chars), creating summary");
-
-                    var summary = new
-                    {
-                        Summary = $"Canvas has {docObjects.Count} objects (data too large for full transmission)",
-                        ComponentCount = docObjects.Count,
-                        Components = definition.Components.Take(10).Select(c => new
-                        {
-                            c.Id,
-                            c.Name,
-                            c.NickName,
-                            InputCount = c.Inputs.Count,
-                            OutputCount = c.Outputs.Count,
-                            c.IsComponent
-                        }).ToList(),
-                        Message = definition.Components.Count > 10 ?
-                            $"Showing first 10 of {definition.Components.Count} components. Use a simpler canvas for full data." :
-                            "Complete component list shown."
-                    };
-
-                    jsonResult = JsonConvert.SerializeObject(summary, Formatting.Indented);
-                    LogDebug($"Summary created, length: {jsonResult.Length}");
+                    comp.VariableName = GenerateVariableName(comp, usedUuids);
                 }
 
-                // Broadcast the canvas info via WebSocket
+                // Sort components topologically
+                var sortedComponents = TopologicalSort(components);
+
+                // Generate pseudocode
+                var output = new StringBuilder();
+
+                // Header
+                output.AppendLine("# === GRASSHOPPER DEFINITION PSEUDOCODE ===");
+                output.AppendLine($"# Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+
+                var sourceCount = sortedComponents.Count(c => !c.Inputs.Any());
+                var sinkCount = sortedComponents.Count(c => !c.Outputs.Any(o => o.HasRecipients));
+                var totalConnections = sortedComponents.Sum(c => c.Inputs.Sum(i => i.Connections.Count));
+
+                output.AppendLine($"# Components: {sortedComponents.Count} | Connections: {totalConnections} | Sources: {sourceCount} | Sinks: {sinkCount}");
+                output.AppendLine();
+
+                // Source components (no inputs)
+                var sources = sortedComponents.Where(c => !c.Inputs.Any()).ToList();
+                if (sources.Any())
+                {
+                    output.AppendLine("# === SOURCE DATA (No inputs) ===");
+                    foreach (var comp in sources)
+                    {
+                        var mainOutput = comp.Outputs.FirstOrDefault();
+                        if (mainOutput != null)
+                        {
+                            string typeName = mainOutput.TypeName ?? "Object";
+                            string preview = INCLUDE_DATA_PREVIEWS ? $"  # {mainOutput.DataPreview}" : "";
+                            output.AppendLine($"{comp.VariableName}: {typeName} = {comp.Name ?? "Component"}(){preview}");
+                        }
+                    }
+                    output.AppendLine();
+                }
+
+                // Main processing chain (components with inputs and outputs)
+                var processors = sortedComponents.Where(c => c.Inputs.Any() && c.Outputs.Any(o => o.HasRecipients)).ToList();
+                if (processors.Any())
+                {
+                    output.AppendLine("# === MAIN PROCESSING CHAIN ===");
+                    foreach (var comp in processors)
+                    {
+                        var mainOutput = comp.Outputs.FirstOrDefault();
+                        if (mainOutput != null)
+                        {
+                            string typeName = mainOutput.TypeName ?? "Object";
+                            if (comp.Outputs.Count > 1)
+                                typeName = $"Tuple[{string.Join(", ", comp.Outputs.Select(o => o.TypeName ?? "Object"))}]";
+
+                            // Generate function call
+                            var functionName = comp.Name ?? "Process";
+                            var args = new List<string>();
+
+                            foreach (var input in comp.Inputs)
+                            {
+                                foreach (var connection in input.Connections)
+                                {
+                                    var sourceComp = sortedComponents.FirstOrDefault(c => c.Id == connection[0]);
+                                    if (sourceComp != null)
+                                    {
+                                        args.Add(sourceComp.VariableName);
+                                    }
+                                }
+                            }
+
+                            if (comp.Outputs.Count == 1)
+                            {
+                                string preview = INCLUDE_DATA_PREVIEWS ? $"  # {mainOutput.DataPreview}" : "";
+                                output.AppendLine($"{comp.VariableName}: {typeName} = {functionName}({string.Join(", ", args)}){preview}");
+                            }
+                            else
+                            {
+                                // Multiple outputs
+                                var outputNames = string.Join(", ", comp.Outputs.Select(o => $"{comp.VariableName}_{o.Name?.ToLower() ?? "out"}"));
+                                output.AppendLine($"{outputNames}: {typeName} = {functionName}({string.Join(", ", args)})");
+                            }
+                        }
+                    }
+                    output.AppendLine();
+                }
+
+                // Disconnected/Display components (sinks)
+                var sinks = sortedComponents.Where(c => c.Outputs.Any() && !c.Outputs.Any(o => o.HasRecipients) && c.Inputs.Any()).ToList();
+                if (sinks.Any())
+                {
+                    output.AppendLine("# === DISCONNECTED/DISPLAY COMPONENTS ===");
+                    foreach (var comp in sinks)
+                    {
+                        var mainOutput = comp.Outputs.FirstOrDefault();
+                        if (mainOutput != null)
+                        {
+                            string typeName = mainOutput.TypeName ?? "Object";
+                            var functionName = comp.Name ?? "Display";
+                            var args = new List<string>();
+
+                            foreach (var input in comp.Inputs)
+                            {
+                                foreach (var connection in input.Connections)
+                                {
+                                    var sourceComp = sortedComponents.FirstOrDefault(c => c.Id == connection[0]);
+                                    if (sourceComp != null)
+                                    {
+                                        args.Add(sourceComp.VariableName);
+                                    }
+                                }
+                            }
+
+                            string preview = INCLUDE_DATA_PREVIEWS ? $"  # {mainOutput.DataPreview}" : "";
+                            output.AppendLine($"{comp.VariableName}: {typeName} = {functionName}({string.Join(", ", args)}){preview}");
+                        }
+                    }
+                }
+
+                string pseudocodeResult = output.ToString();
+                LogDebug($"Pseudocode generated, length: {pseudocodeResult.Length}");
+
+                // Broadcast the pseudocode via WebSocket
                 try
                 {
-                    BroadcastCanvasInfo(jsonResult, correlationId);
-                    LogDebug("Canvas info sent via WebSocket");
+                    BroadcastCanvasInfo(pseudocodeResult, correlationId);
+                    LogDebug("Pseudocode sent via WebSocket");
                 }
                 catch (Exception broadcastEx)
                 {
@@ -400,21 +460,174 @@ namespace LiveCoding
             }
         }
 
-        private void BroadcastCanvasInfo(string jsonData, string correlationId)
+        /// <summary>
+        /// Generates a compact data preview string (max 100 chars).
+        /// </summary>
+        private string GetCompactDataPreview(IGH_Goo goo)
+        {
+            if (goo == null) return "null";
+
+            string preview = "";
+            switch (goo.ScriptVariable())
+            {
+                case Point3d pt:
+                    preview = $"Pt({pt.X:F2},{pt.Y:F2},{pt.Z:F2})";
+                    break;
+
+                case Line line:
+                    preview = $"Line[({line.From.X:F2},{line.From.Y:F2},{line.From.Z:F2})->({line.To.X:F2},{line.To.Y:F2},{line.To.Z:F2})]";
+                    break;
+
+                case Curve curve when curve.IsLinear():
+                    preview = $"Line[({curve.PointAtStart.X:F2},{curve.PointAtStart.Y:F2},{curve.PointAtStart.Z:F2})->({curve.PointAtEnd.X:F2},{curve.PointAtEnd.Y:F2},{curve.PointAtEnd.Z:F2})]";
+                    break;
+
+                case Curve curve:
+                    var nurbsCurve = curve.ToNurbsCurve();
+                    if (nurbsCurve != null)
+                    {
+                        string pointsStr = string.Join(";", nurbsCurve.Points.Select(p => $"({p.Location.X:F2},{p.Location.Y:F2},{p.Location.Z:F2})"));
+                        preview = $"CurvePts[{pointsStr}]";
+                    }
+                    else
+                    {
+                        preview = $"Curve(L={curve.GetLength():F2})";
+                    }
+                    break;
+
+                case Brep brep:
+                    preview = $"Brep(V={brep.Vertices.Count},F={brep.Faces.Count})";
+                    break;
+
+                default:
+                    preview = goo.ToString();
+                    break;
+            }
+
+            // Truncate to 100 characters
+            if (preview.Length > DATA_PREVIEW_LIMIT)
+            {
+                preview = preview.Substring(0, DATA_PREVIEW_LIMIT - 3) + "...";
+            }
+
+            return preview;
+        }
+
+        /// <summary>
+        /// Truncates UUID to specified length and handles collisions.
+        /// </summary>
+        private string GetShortUuid(Guid guid, HashSet<string> usedUuids)
+        {
+            string uuidStr = guid.ToString("N"); // No hyphens
+            for (int len = 4; len <= UUID_LENGTH; len += 2)
+            {
+                string shortUuid = uuidStr.Substring(0, len);
+                if (!usedUuids.Contains(shortUuid))
+                {
+                    usedUuids.Add(shortUuid);
+                    return shortUuid;
+                }
+            }
+            // Fallback if all lengths are taken (very unlikely)
+            usedUuids.Add(uuidStr.Substring(0, UUID_LENGTH));
+            return uuidStr.Substring(0, UUID_LENGTH);
+        }
+
+        /// <summary>
+        /// Generates a meaningful variable name from component info.
+        /// </summary>
+        private string GenerateVariableName(PseudocodeComponent comp, HashSet<string> usedUuids)
+        {
+            string baseName = "";
+
+            // Priority: NickName > Name > ComponentType
+            if (!string.IsNullOrEmpty(comp.NickName))
+            {
+                baseName = comp.NickName.ToLower().Replace(" ", "_").Replace("-", "_");
+            }
+            else if (!string.IsNullOrEmpty(comp.Name))
+            {
+                baseName = comp.Name.ToLower().Replace(" ", "_").Replace("-", "_");
+            }
+            else
+            {
+                baseName = "component";
+            }
+
+            // Remove invalid characters for Python variable names
+            baseName = System.Text.RegularExpressions.Regex.Replace(baseName, @"[^a-z0-9_]", "");
+            if (string.IsNullOrEmpty(baseName) || char.IsDigit(baseName[0]))
+            {
+                baseName = "comp_" + baseName;
+            }
+
+            string shortUuid = GetShortUuid(comp.Guid, usedUuids);
+            return $"{baseName}_{shortUuid}";
+        }
+
+        /// <summary>
+        /// Performs topological sort on components based on their dependencies.
+        /// </summary>
+        private List<PseudocodeComponent> TopologicalSort(List<PseudocodeComponent> components)
+        {
+            var sorted = new List<PseudocodeComponent>();
+            var visited = new HashSet<int>();
+            var visiting = new HashSet<int>();
+            var compById = components.ToDictionary(c => c.Id, c => c);
+
+            void Visit(int compId)
+            {
+                if (visiting.Contains(compId))
+                {
+                    // Cycle detected - just add it anyway
+                    return;
+                }
+                if (visited.Contains(compId)) return;
+
+                visiting.Add(compId);
+
+                if (compById.TryGetValue(compId, out var comp))
+                {
+                    // Visit all dependencies first
+                    foreach (var input in comp.Inputs)
+                    {
+                        foreach (var connection in input.Connections)
+                        {
+                            Visit(connection[0]); // Visit source component
+                        }
+                    }
+
+                    visited.Add(compId);
+                    sorted.Add(comp);
+                }
+
+                visiting.Remove(compId);
+            }
+
+            // Visit all components
+            foreach (var comp in components)
+            {
+                if (!visited.Contains(comp.Id))
+                {
+                    Visit(comp.Id);
+                }
+            }
+
+            return sorted;
+        }
+
+        private void BroadcastCanvasInfo(string pseudocodeData, string correlationId)
         {
             LogDebug($"BroadcastCanvasInfo called. CorrelationId: {correlationId}");
 
             try
             {
-                // Parse JSON data back to object to avoid double-encoding
-                var dataObject = JsonConvert.DeserializeObject(jsonData);
-
                 var responseDict = new Dictionary<string, object>
                 {
                     ["action"] = "get_canvas_info_response",
                     ["correlationId"] = correlationId ?? Guid.NewGuid().ToString(),
                     ["status"] = "success",
-                    ["data"] = dataObject
+                    ["data"] = pseudocodeData
                 };
 
                 string responseJson = JsonConvert.SerializeObject(responseDict);
@@ -889,35 +1102,33 @@ namespace LiveCoding
         public Dictionary<string, object> Payload { get; set; }
     }
 
-    // ---------------------- Canvas Analysis Data Models ----------------------
+    // ---------------------- Pseudocode Data Models ----------------------
 
-    public class CompactGhDefinition
+    public class PseudocodeComponent
     {
-        public List<CompactGhComponent> Components { get; set; } = new List<CompactGhComponent>();
+        public int Id { get; set; }
+        public Guid Guid { get; set; }
+        public string Name { get; set; }
+        public string NickName { get; set; }
+        public string Description { get; set; }
+        public bool IsComponent { get; set; }
+        public string VariableName { get; set; }
+        public List<PseudocodeInput> Inputs { get; set; } = new List<PseudocodeInput>();
+        public List<PseudocodeOutput> Outputs { get; set; } = new List<PseudocodeOutput>();
     }
 
-    public class GhInputParameter
+    public class PseudocodeInput
     {
         public string Name { get; set; }
         public string TypeName { get; set; }
         public List<int[]> Connections { get; set; } = new List<int[]>();
     }
 
-    public class GhOutputParameter
+    public class PseudocodeOutput
     {
         public string Name { get; set; }
         public string TypeName { get; set; }
         public string DataPreview { get; set; }
-    }
-
-    public class CompactGhComponent
-    {
-        public int Id { get; set; }
-        public string Name { get; set; }
-        public string NickName { get; set; }
-        public string Description { get; set; }
-        public bool IsComponent { get; set; }
-        public List<GhInputParameter> Inputs { get; set; } = new List<GhInputParameter>();
-        public List<GhOutputParameter> Outputs { get; set; } = new List<GhOutputParameter>();
+        public bool HasRecipients { get; set; }
     }
 }
