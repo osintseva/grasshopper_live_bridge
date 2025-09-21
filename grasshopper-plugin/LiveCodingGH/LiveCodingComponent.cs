@@ -149,44 +149,55 @@ namespace LiveCoding
             if (doc == null)
             {
                 LogDebug("No active Grasshopper document - command ignored");
+                SendErrorResponse(cmd.Action, cmd.CorrelationId, "No active Grasshopper document");
                 return;
             }
 
             var payload = cmd.Payload ?? new Dictionary<string, object>();
 
-            switch ((cmd.Action ?? string.Empty).ToLowerInvariant())
+            try
             {
-                case "ping":
-                    // no-op (the WS service already acks)
-                    break;
+                switch ((cmd.Action ?? string.Empty).ToLowerInvariant())
+                {
+                    case "ping":
+                        SendSuccessResponse("ping", cmd.CorrelationId, "Pong!");
+                        break;
 
-                case "create_slider":
-                    CreateSlider(doc, payload);
-                    break;
+                    case "create_slider":
+                        CreateSlider(doc, payload, cmd.CorrelationId);
+                        break;
 
-                case "create_python_script":
-                    CreatePythonScript(doc, payload);
-                    break;
+                    case "create_python_script":
+                        CreatePythonScript(doc, payload, cmd.CorrelationId);
+                        break;
 
-                case "update_script":
-                    UpdateExistingScript(doc, payload);
-                    break;
+                    case "update_script":
+                        UpdateExistingScript(doc, payload, cmd.CorrelationId);
+                        break;
 
-                case "get_canvas_info":
-                    GetCanvasInfo(doc, cmd.CorrelationId);
-                    break;
+                    case "get_canvas_info":
+                        GetCanvasInfo(doc, cmd.CorrelationId);
+                        break;
 
-                case "create_python_advanced":
-                    CreatePythonAdvanced(doc, payload);
-                    break;
+                    case "create_python_advanced":
+                        CreatePythonAdvanced(doc, payload, cmd.CorrelationId);
+                        break;
 
-                case "create_python_xml":
-                    CreatePythonXml(doc, payload);
-                    break;
+                    case "create_python_xml":
+                        CreatePythonXml(doc, payload, cmd.CorrelationId);
+                        break;
 
-                default:
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Unknown action: {cmd.Action}");
-                    break;
+                    default:
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Unknown action: {cmd.Action}");
+                        SendErrorResponse(cmd.Action, cmd.CorrelationId, $"Unknown action: {cmd.Action}");
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                LogDebug($"Command execution failed: {ex.Message}");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Command failed: {ex.Message}");
+                SendErrorResponse(cmd.Action, cmd.CorrelationId, ex.Message);
             }
         }
 
@@ -202,6 +213,64 @@ namespace LiveCoding
         private static readonly BindingFlags BF =
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic |
             BindingFlags.FlattenHierarchy | BindingFlags.IgnoreCase;
+
+        // ---------------------- Response Methods ----------------------
+
+        private void SendSuccessResponse(string action, string correlationId, string message = null)
+        {
+            try
+            {
+                var responseDict = new Dictionary<string, object>
+                {
+                    ["action"] = action + "_response",
+                    ["correlationId"] = correlationId ?? Guid.NewGuid().ToString(),
+                    ["status"] = "success"
+                };
+
+                if (!string.IsNullOrEmpty(message))
+                {
+                    responseDict["message"] = message;
+                }
+
+                string responseJson = JsonConvert.SerializeObject(responseDict);
+                LogDebug($"Sending success response for {action}");
+
+                if (!string.IsNullOrEmpty(correlationId))
+                {
+                    LiveCodingService.SendToSession(correlationId, responseJson);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogDebug($"Failed to send success response: {ex.Message}");
+            }
+        }
+
+        private void SendErrorResponse(string action, string correlationId, string error)
+        {
+            try
+            {
+                var responseDict = new Dictionary<string, object>
+                {
+                    ["action"] = action + "_response",
+                    ["correlationId"] = correlationId ?? Guid.NewGuid().ToString(),
+                    ["status"] = "error",
+                    ["message"] = error
+                };
+
+                string responseJson = JsonConvert.SerializeObject(responseDict);
+                LogDebug($"Sending error response for {action}: {error}");
+
+                if (!string.IsNullOrEmpty(correlationId))
+                {
+                    LiveCodingService.SendToSession(correlationId, responseJson);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogDebug($"Failed to send error response: {ex.Message}");
+            }
+        }
 
         // ---------------------- Canvas Analysis ----------------------
 
@@ -663,18 +732,31 @@ namespace LiveCoding
 
         // ---------------------- Create Slider ----------------------
 
-        private void CreateSlider(GH_Document doc, IDictionary<string, object> payload)
+        private void CreateSlider(GH_Document doc, IDictionary<string, object> payload, string correlationId)
         {
-            var x = F(payload.TryGetValue("x", out var xv) ? xv : null, 150f);
-            var y = F(payload.TryGetValue("y", out var yv) ? yv : null, 150f);
-            var name = S(payload.TryGetValue("nickname", out var nv) ? nv : null, "From VSCode");
+            try
+            {
+                var x = F(payload.TryGetValue("x", out var xv) ? xv : null, 150f);
+                var y = F(payload.TryGetValue("y", out var yv) ? yv : null, 150f);
+                var name = S(payload.TryGetValue("nickname", out var nv) ? nv : null, "From VSCode");
 
-            var slider = new GH_NumberSlider();
-            slider.CreateAttributes();
-            slider.Attributes.Pivot = new PointF(x, y);
-            slider.NickName = name;
+                var slider = new GH_NumberSlider();
+                slider.CreateAttributes();
+                slider.Attributes.Pivot = new PointF(x, y);
+                slider.NickName = name;
 
-            doc.AddObject(slider, true);
+                doc.AddObject(slider, true);
+
+                SendSuccessResponse("create_slider", correlationId, $"Slider '{name}' created successfully");
+                LogDebug($"Slider created successfully: {name} at ({x}, {y})");
+            }
+            catch (Exception ex)
+            {
+                var error = $"Failed to create slider: {ex.Message}";
+                LogDebug(error);
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, error);
+                SendErrorResponse("create_slider", correlationId, error);
+            }
         }
 
         // ---------------------- Create Python Script ----------------------
@@ -682,25 +764,46 @@ namespace LiveCoding
         // Overloads differ; we disambiguate by parameter types.
         // Legacy fallback: GhPython.Component.ZuiPythonComponent with property "Code"/etc.
 
-        private void CreatePythonScript(GH_Document doc, IDictionary<string, object> payload)
+        private void CreatePythonScript(GH_Document doc, IDictionary<string, object> payload, string correlationId)
         {
-            var x = F(payload.TryGetValue("x", out var xv) ? xv : null, 260f);
-            var y = F(payload.TryGetValue("y", out var yv) ? yv : null, 160f);
-            var code = S(payload.TryGetValue("code", out var cv) ? cv : null,
-                "import datetime as _dt\nA = 'Py ready @ ' + _dt.datetime.now().strftime('%H:%M:%S')");
-
-            // Try Rhino 7 API first (RhinoCodePluginGH)
-            var created = TryCreateRhino8Python(doc, x, y, code);
-            if (created) return;
-
-            // Fallback to legacy GhPython (Rhino 7 / legacy in Rhino 7)
-            var ok = TryCreateLegacyGhPython(doc, x, y, code);
-            if (!ok)
+            try
             {
+                var x = F(payload.TryGetValue("x", out var xv) ? xv : null, 260f);
+                var y = F(payload.TryGetValue("y", out var yv) ? yv : null, 160f);
+                var code = S(payload.TryGetValue("code", out var cv) ? cv : null,
+                    "import datetime as _dt\nA = 'Py ready @ ' + _dt.datetime.now().strftime('%H:%M:%S')");
+
+                // Try Rhino 8 API first (RhinoCodePluginGH)
+                var created = TryCreateRhino8Python(doc, x, y, code);
+                if (created)
+                {
+                    SendSuccessResponse("create_python_script", correlationId, "Python script component created successfully using Rhino 8 API");
+                    return;
+                }
+
+                // Fallback to legacy GhPython (Rhino 7 / legacy in Rhino 8)
+                var ok = TryCreateLegacyGhPython(doc, x, y, code);
+                if (ok)
+                {
+                    SendSuccessResponse("create_python_script", correlationId, "Python script component created successfully using legacy API");
+                    return;
+                }
+
+                // Both methods failed
+                var error = "Could not create a Python script component. Ensure RhinoCode or GHPython is available.";
                 FallbackPanel(doc, x, y,
                     "Could not create a Python script component.\n" +
-                    "Rhino 7: ensure RhinoCode plugin is loaded.\n" +
+                    "Rhino 8: ensure RhinoCode plugin is loaded.\n" +
                     "Legacy: ensure GHPython is installed.");
+
+                SendErrorResponse("create_python_script", correlationId, error);
+            }
+            catch (Exception ex)
+            {
+                var error = $"Failed to create Python script: {ex.Message}";
+                LogDebug(error);
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, error);
+                SendErrorResponse("create_python_script", correlationId, error);
             }
         }
 
@@ -792,49 +895,57 @@ namespace LiveCoding
 
         // ---------------------- Advanced Python Component Creation (Rhino 8.14+) ----------------------
 
-        private void CreatePythonAdvanced(GH_Document doc, IDictionary<string, object> payload)
+        private void CreatePythonAdvanced(GH_Document doc, IDictionary<string, object> payload, string correlationId)
         {
-            var x = F(payload.TryGetValue("x", out var xv) ? xv : null, 300f);
-            var y = F(payload.TryGetValue("y", out var yv) ? yv : null, 200f);
-            var code = S(payload.TryGetValue("code", out var cv) ? cv : null,
-                "# Advanced Python Component\nimport Rhino.Geometry as rg\n\n# Process inputs\nresult = []\nfor i, item in enumerate(input_data if 'input_data' in locals() else []):\n    result.append(f\"Item {i}: {item}\")\n\noutput = result");
-
-            // Extract input/output specifications
-            var inputs = payload.TryGetValue("inputs", out var inputsObj) ?
-                JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(inputsObj)) ??
-                new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
-
-            var outputs = payload.TryGetValue("outputs", out var outputsObj) ?
-                JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(outputsObj)) ??
-                new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
-
-            // Extract connection specifications
-            var connections = payload.TryGetValue("connections", out var connectionsObj) ?
-                JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(connectionsObj)) ??
-                new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
-
-            LogDebug($"CreatePythonAdvanced: inputs={inputs.Count}, outputs={outputs.Count}, connections={connections.Count}");
-
             try
             {
+                var x = F(payload.TryGetValue("x", out var xv) ? xv : null, 300f);
+                var y = F(payload.TryGetValue("y", out var yv) ? yv : null, 200f);
+                var code = S(payload.TryGetValue("code", out var cv) ? cv : null,
+                    "# Advanced Python Component\nimport Rhino.Geometry as rg\n\n# Process inputs\nresult = []\nfor i, item in enumerate(input_data if 'input_data' in locals() else []):\n    result.append(f\"Item {i}: {item}\")\n\noutput = result");
+
+                // Extract input/output specifications
+                var inputs = payload.TryGetValue("inputs", out var inputsObj) ?
+                    JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(inputsObj)) ??
+                    new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
+
+                var outputs = payload.TryGetValue("outputs", out var outputsObj) ?
+                    JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(outputsObj)) ??
+                    new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
+
+                // Extract connection specifications
+                var connections = payload.TryGetValue("connections", out var connectionsObj) ?
+                    JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(connectionsObj)) ??
+                    new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
+
+                LogDebug($"CreatePythonAdvanced: inputs={inputs.Count}, outputs={outputs.Count}, connections={connections.Count}");
+
                 // Try the official Rhino 8.14+ API
                 var pythonComponent = CreateAdvancedPython814(doc, x, y, code, inputs, outputs, connections);
                 if (pythonComponent != null)
                 {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Advanced Python component created successfully with Rhino 8.14+ API");
+                    var message = $"Advanced Python component created successfully with {inputs.Count} inputs, {outputs.Count} outputs, {connections.Count} connections";
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, message);
+                    SendSuccessResponse("create_python_advanced", correlationId, message);
                     return;
                 }
 
-                // Fallback message
+                // API not available - send error response
+                var error = "Advanced Python Creation Failed: Rhino 8.14+ API not available. Try create_python_xml endpoint instead.";
                 FallbackPanel(doc, x, y,
                     "Advanced Python Creation Failed.\n" +
                     "Rhino 8.14+ API not available.\n" +
                     "Try create_python_xml endpoint instead.");
+
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, error);
+                SendErrorResponse("create_python_advanced", correlationId, error);
             }
             catch (Exception ex)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Failed to create advanced Python component: {ex.Message}");
+                var error = $"Failed to create advanced Python component: {ex.Message}";
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, error);
                 LogDebug($"CreatePythonAdvanced exception: {ex}");
+                SendErrorResponse("create_python_advanced", correlationId, error);
             }
         }
 
@@ -945,46 +1056,55 @@ namespace LiveCoding
 
         // ---------------------- XML-based Python Component Creation ----------------------
 
-        private void CreatePythonXml(GH_Document doc, IDictionary<string, object> payload)
+        private void CreatePythonXml(GH_Document doc, IDictionary<string, object> payload, string correlationId)
         {
-            var x = F(payload.TryGetValue("x", out var xv) ? xv : null, 400f);
-            var y = F(payload.TryGetValue("y", out var yv) ? yv : null, 200f);
-            var code = S(payload.TryGetValue("code", out var cv) ? cv : null,
-                "# XML-based Python Component\nimport Rhino.Geometry as rg\n\n# Process data\nresult = f\"XML Python executed at {System.DateTime.Now}\"");
-
-            // Extract input/output specifications
-            var inputs = payload.TryGetValue("inputs", out var inputsObj) ?
-                JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(inputsObj)) ??
-                new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
-
-            var outputs = payload.TryGetValue("outputs", out var outputsObj) ?
-                JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(outputsObj)) ??
-                new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
-
-            var connections = payload.TryGetValue("connections", out var connectionsObj) ?
-                JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(connectionsObj)) ??
-                new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
-
-            LogDebug($"CreatePythonXml: inputs={inputs.Count}, outputs={outputs.Count}, connections={connections.Count}");
-
             try
             {
+                var x = F(payload.TryGetValue("x", out var xv) ? xv : null, 400f);
+                var y = F(payload.TryGetValue("y", out var yv) ? yv : null, 200f);
+                var code = S(payload.TryGetValue("code", out var cv) ? cv : null,
+                    "# XML-based Python Component\nimport Rhino.Geometry as rg\n\n# Process data\nresult = f\"XML Python executed at {System.DateTime.Now}\"");
+
+                // Extract input/output specifications
+                var inputs = payload.TryGetValue("inputs", out var inputsObj) ?
+                    JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(inputsObj)) ??
+                    new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
+
+                var outputs = payload.TryGetValue("outputs", out var outputsObj) ?
+                    JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(outputsObj)) ??
+                    new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
+
+                var connections = payload.TryGetValue("connections", out var connectionsObj) ?
+                    JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(connectionsObj)) ??
+                    new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
+
+                LogDebug($"CreatePythonXml: inputs={inputs.Count}, outputs={outputs.Count}, connections={connections.Count}");
+
                 var pythonComponent = CreatePythonWithXml(doc, x, y, code, inputs, outputs, connections);
                 if (pythonComponent != null)
                 {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "XML-based Python component created successfully");
+                    var message = $"XML-based Python component created successfully with {inputs.Count} inputs, {outputs.Count} outputs, {connections.Count} connections";
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, message);
+                    SendSuccessResponse("create_python_xml", correlationId, message);
                     return;
                 }
 
+                // Creation failed
+                var error = "XML Python Creation Failed: Neither RhinoCode nor GhPython available. Install Python component support.";
                 FallbackPanel(doc, x, y,
                     "XML Python Creation Failed.\n" +
                     "Neither RhinoCode nor GhPython available.\n" +
                     "Install Python component support.");
+
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, error);
+                SendErrorResponse("create_python_xml", correlationId, error);
             }
             catch (Exception ex)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Failed to create XML Python component: {ex.Message}");
+                var error = $"Failed to create XML Python component: {ex.Message}";
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, error);
                 LogDebug($"CreatePythonXml exception: {ex}");
+                SendErrorResponse("create_python_xml", correlationId, error);
             }
         }
 
@@ -1223,42 +1343,61 @@ namespace LiveCoding
 
         // ---------------------- Update existing component by GUID ----------------------
 
-        private void UpdateExistingScript(GH_Document doc, IDictionary<string, object> payload)
+        private void UpdateExistingScript(GH_Document doc, IDictionary<string, object> payload, string correlationId)
         {
-            var idStr = S(payload.TryGetValue("componentId", out var idv) ? idv : null, "");
-            var code = S(payload.TryGetValue("code", out var cv) ? cv : null, "");
+            try
+            {
+                var idStr = S(payload.TryGetValue("componentId", out var idv) ? idv : null, "");
+                var code = S(payload.TryGetValue("code", out var cv) ? cv : null, "");
 
-            if (!Guid.TryParse(idStr, out var id))
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Bad componentId '{idStr}'");
-                return;
-            }
+                if (!Guid.TryParse(idStr, out var id))
+                {
+                    var error = $"Bad componentId '{idStr}'";
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, error);
+                    SendErrorResponse("update_script", correlationId, error);
+                    return;
+                }
 
-            var obj = doc.FindObject(id, true);
-            if (obj == null)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Object {id} not found in document.");
-                return;
-            }
+                var obj = doc.FindObject(id, true);
+                if (obj == null)
+                {
+                    var error = $"Object {id} not found in document.";
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, error);
+                    SendErrorResponse("update_script", correlationId, error);
+                    return;
+                }
 
-            // Rhino 7 API: prefer SetSource if this is a RhinoCode script component
-            if (TrySetRhino8Source(obj, code))
-            {
-                obj.ExpireSolution(true);
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"Updated code on {obj.NickName} (Rhino 7).");
-                return;
-            }
+                // Rhino 8 API: prefer SetSource if this is a RhinoCode script component
+                if (TrySetRhino8Source(obj, code))
+                {
+                    obj.ExpireSolution(true);
+                    var message = $"Updated code on {obj.NickName} (Rhino 8 API)";
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, message);
+                    SendSuccessResponse("update_script", correlationId, message);
+                    return;
+                }
 
-            // Legacy fallback
-            if (TrySetScriptCode(obj, code, out var dbg))
-            {
-                obj.ExpireSolution(true);
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"Updated code on {obj.NickName} (legacy).");
+                // Legacy fallback
+                if (TrySetScriptCode(obj, code, out var dbg))
+                {
+                    obj.ExpireSolution(true);
+                    var message = $"Updated code on {obj.NickName} (legacy API)";
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, message);
+                    SendSuccessResponse("update_script", correlationId, message);
+                }
+                else
+                {
+                    var error = $"Could not set code on {obj.GetType().FullName}. {dbg}";
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, error);
+                    SendErrorResponse("update_script", correlationId, error);
+                }
             }
-            else
+            catch (Exception ex)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
-                    $"Could not set code on {obj.GetType().FullName}.\n{dbg}");
+                var error = $"Failed to update script: {ex.Message}";
+                LogDebug(error);
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, error);
+                SendErrorResponse("update_script", correlationId, error);
             }
         }
 
