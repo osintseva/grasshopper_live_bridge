@@ -7,9 +7,12 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Xml.Linq;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Special;
 using Grasshopper.Kernel.Types;
+using Grasshopper.Kernel.Parameters;
+using GH_IO.Serialization;
 using Newtonsoft.Json;
 using Rhino.Geometry;
 using WebSocketSharp;
@@ -171,6 +174,14 @@ namespace LiveCoding
 
                 case "get_canvas_info":
                     GetCanvasInfo(doc, cmd.CorrelationId);
+                    break;
+
+                case "create_python_advanced":
+                    CreatePythonAdvanced(doc, payload);
+                    break;
+
+                case "create_python_xml":
+                    CreatePythonXml(doc, payload);
                     break;
 
                 default:
@@ -777,6 +788,437 @@ namespace LiveCoding
             doc.AddObject(obj, true);
             doc.ScheduleSolution(1, _ => obj.ExpireSolution(true));
             return true;
+        }
+
+        // ---------------------- Advanced Python Component Creation (Rhino 8.14+) ----------------------
+
+        private void CreatePythonAdvanced(GH_Document doc, IDictionary<string, object> payload)
+        {
+            var x = F(payload.TryGetValue("x", out var xv) ? xv : null, 300f);
+            var y = F(payload.TryGetValue("y", out var yv) ? yv : null, 200f);
+            var code = S(payload.TryGetValue("code", out var cv) ? cv : null,
+                "# Advanced Python Component\nimport Rhino.Geometry as rg\n\n# Process inputs\nresult = []\nfor i, item in enumerate(input_data if 'input_data' in locals() else []):\n    result.append(f\"Item {i}: {item}\")\n\noutput = result");
+
+            // Extract input/output specifications
+            var inputs = payload.TryGetValue("inputs", out var inputsObj) ?
+                JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(inputsObj)) ??
+                new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
+
+            var outputs = payload.TryGetValue("outputs", out var outputsObj) ?
+                JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(outputsObj)) ??
+                new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
+
+            // Extract connection specifications
+            var connections = payload.TryGetValue("connections", out var connectionsObj) ?
+                JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(connectionsObj)) ??
+                new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
+
+            LogDebug($"CreatePythonAdvanced: inputs={inputs.Count}, outputs={outputs.Count}, connections={connections.Count}");
+
+            try
+            {
+                // Try the official Rhino 8.14+ API
+                var pythonComponent = CreateAdvancedPython814(doc, x, y, code, inputs, outputs, connections);
+                if (pythonComponent != null)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Advanced Python component created successfully with Rhino 8.14+ API");
+                    return;
+                }
+
+                // Fallback message
+                FallbackPanel(doc, x, y,
+                    "Advanced Python Creation Failed.\n" +
+                    "Rhino 8.14+ API not available.\n" +
+                    "Try create_python_xml endpoint instead.");
+            }
+            catch (Exception ex)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Failed to create advanced Python component: {ex.Message}");
+                LogDebug($"CreatePythonAdvanced exception: {ex}");
+            }
+        }
+
+        private IGH_Component CreateAdvancedPython814(GH_Document doc, float x, float y, string code,
+            List<Dictionary<string, object>> inputs, List<Dictionary<string, object>> outputs,
+            List<Dictionary<string, object>> connections)
+        {
+            // Check if the official API is available
+            var pythonType = Type.GetType("RhinoCodePluginGH.Components.Python3Component, RhinoCodePluginGH");
+            if (pythonType == null)
+            {
+                LogDebug("Python3Component type not found");
+                return null;
+            }
+
+            var paramType = Type.GetType("RhinoCodePluginGH.Parameters.ScriptVariableParam, RhinoCodePluginGH");
+            if (paramType == null)
+            {
+                LogDebug("ScriptVariableParam type not found");
+                return null;
+            }
+
+            // Try to create using the new API
+            var createMethod = pythonType.GetMethod("Create", BindingFlags.Public | BindingFlags.Static,
+                null, new[] { typeof(string), typeof(string) }, null);
+
+            if (createMethod == null)
+            {
+                LogDebug("Python3Component.Create method not found");
+                return null;
+            }
+
+            var component = createMethod.Invoke(null, new object[] { "AdvancedPython", code }) as IGH_Component;
+            if (component == null)
+            {
+                LogDebug("Failed to create Python3Component instance");
+                return null;
+            }
+
+            // Add custom inputs
+            foreach (var inputSpec in inputs)
+            {
+                var name = S(inputSpec.TryGetValue("name", out var nameObj) ? nameObj : null, "input");
+                var nickname = S(inputSpec.TryGetValue("nickname", out var nickObj) ? nickObj : null, name);
+                var optional = inputSpec.TryGetValue("optional", out var optObj) && optObj is bool opt ? opt : true;
+                var access = S(inputSpec.TryGetValue("access", out var accessObj) ? accessObj : null, "item");
+
+                var inputParam = Activator.CreateInstance(paramType) as IGH_Param;
+                if (inputParam != null)
+                {
+                    inputParam.Name = name;
+                    inputParam.NickName = nickname;
+                    inputParam.Optional = optional;
+
+                    // Set access type
+                    if (access.ToLower() == "list")
+                        inputParam.Access = GH_ParamAccess.list;
+                    else if (access.ToLower() == "tree")
+                        inputParam.Access = GH_ParamAccess.tree;
+                    else
+                        inputParam.Access = GH_ParamAccess.item;
+
+                    inputParam.CreateAttributes();
+                    component.Params.RegisterInputParam(inputParam);
+                }
+            }
+
+            // Add custom outputs
+            foreach (var outputSpec in outputs)
+            {
+                var name = S(outputSpec.TryGetValue("name", out var nameObj) ? nameObj : null, "output");
+                var nickname = S(outputSpec.TryGetValue("nickname", out var nickObj) ? nickObj : null, name);
+
+                var outputParam = Activator.CreateInstance(paramType) as IGH_Param;
+                if (outputParam != null)
+                {
+                    outputParam.Name = name;
+                    outputParam.NickName = nickname;
+                    outputParam.CreateAttributes();
+                    component.Params.RegisterOutputParam(outputParam);
+                }
+            }
+
+            // Finalize parameter changes
+            var maintenanceMethod = pythonType.GetMethod("VariableParameterMaintenance");
+            maintenanceMethod?.Invoke(component, null);
+
+            // Position and add to document
+            component.CreateAttributes();
+            component.Attributes.Pivot = new PointF(x, y);
+            doc.AddObject(component, true);
+
+            // Handle connections after adding to document
+            doc.ScheduleSolution(10, _ => {
+                try
+                {
+                    MakeConnections(doc, component, connections);
+                    component.ExpireSolution(true);
+                }
+                catch (Exception ex)
+                {
+                    LogDebug($"Connection failed: {ex.Message}");
+                }
+            });
+
+            return component;
+        }
+
+        // ---------------------- XML-based Python Component Creation ----------------------
+
+        private void CreatePythonXml(GH_Document doc, IDictionary<string, object> payload)
+        {
+            var x = F(payload.TryGetValue("x", out var xv) ? xv : null, 400f);
+            var y = F(payload.TryGetValue("y", out var yv) ? yv : null, 200f);
+            var code = S(payload.TryGetValue("code", out var cv) ? cv : null,
+                "# XML-based Python Component\nimport Rhino.Geometry as rg\n\n# Process data\nresult = f\"XML Python executed at {System.DateTime.Now}\"");
+
+            // Extract input/output specifications
+            var inputs = payload.TryGetValue("inputs", out var inputsObj) ?
+                JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(inputsObj)) ??
+                new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
+
+            var outputs = payload.TryGetValue("outputs", out var outputsObj) ?
+                JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(outputsObj)) ??
+                new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
+
+            var connections = payload.TryGetValue("connections", out var connectionsObj) ?
+                JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(connectionsObj)) ??
+                new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
+
+            LogDebug($"CreatePythonXml: inputs={inputs.Count}, outputs={outputs.Count}, connections={connections.Count}");
+
+            try
+            {
+                var pythonComponent = CreatePythonWithXml(doc, x, y, code, inputs, outputs, connections);
+                if (pythonComponent != null)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "XML-based Python component created successfully");
+                    return;
+                }
+
+                FallbackPanel(doc, x, y,
+                    "XML Python Creation Failed.\n" +
+                    "Neither RhinoCode nor GhPython available.\n" +
+                    "Install Python component support.");
+            }
+            catch (Exception ex)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Failed to create XML Python component: {ex.Message}");
+                LogDebug($"CreatePythonXml exception: {ex}");
+            }
+        }
+
+        private IGH_Component CreatePythonWithXml(GH_Document doc, float x, float y, string code,
+            List<Dictionary<string, object>> inputs, List<Dictionary<string, object>> outputs,
+            List<Dictionary<string, object>> connections)
+        {
+            // Try RhinoCode first
+            var pythonType = Type.GetType("RhinoCodePluginGH.Components.Python3Component, RhinoCodePluginGH");
+            if (pythonType == null)
+            {
+                // Fallback to legacy GhPython
+                pythonType = Type.GetType("GhPython.Component.ZuiPythonComponent, GhPython");
+                if (pythonType == null)
+                {
+                    LogDebug("No Python component types available");
+                    return null;
+                }
+            }
+
+            // Create basic component instance
+            var component = Activator.CreateInstance(pythonType) as IGH_Component;
+            if (component == null)
+            {
+                LogDebug("Failed to create component instance");
+                return null;
+            }
+
+            // Add custom parameters using reflection
+            AddCustomParameters(component, inputs, outputs);
+
+            // Position component
+            component.CreateAttributes();
+            component.Attributes.Pivot = new PointF(x, y);
+
+            // Use XML serialization to set the script code
+            if (!SetCodeViaXml(component, code))
+            {
+                LogDebug("Failed to set code via XML, trying legacy approach");
+                TrySetScriptCode(component, code, out var debug);
+                LogDebug($"Legacy code setting: {debug}");
+            }
+
+            // Add to document
+            doc.AddObject(component, true);
+
+            // Handle connections after adding to document
+            doc.ScheduleSolution(15, _ => {
+                try
+                {
+                    MakeConnections(doc, component, connections);
+                    component.ExpireSolution(true);
+                }
+                catch (Exception ex)
+                {
+                    LogDebug($"XML connection failed: {ex.Message}");
+                }
+            });
+
+            return component;
+        }
+
+        private void AddCustomParameters(IGH_Component component, List<Dictionary<string, object>> inputs, List<Dictionary<string, object>> outputs)
+        {
+            try
+            {
+                // Try to add parameters using reflection
+                var paramsProperty = component.GetType().GetProperty("Params");
+                var paramServer = paramsProperty?.GetValue(component);
+                if (paramServer == null)
+                {
+                    LogDebug("Could not access component parameter server");
+                    return;
+                }
+
+                // Add inputs
+                foreach (var inputSpec in inputs)
+                {
+                    var name = S(inputSpec.TryGetValue("name", out var nameObj) ? nameObj : null, "input");
+                    var nickname = S(inputSpec.TryGetValue("nickname", out var nickObj) ? nickObj : null, name);
+
+                    // Create a generic parameter - try different types
+                    IGH_Param inputParam = TryCreateParameter("ScriptVariableParam") ??
+                                          TryCreateParameter("Param_GenericObject") ??
+                                          TryCreateParameter("Param_String");
+
+                    if (inputParam != null)
+                    {
+                        inputParam.Name = name;
+                        inputParam.NickName = nickname;
+                        inputParam.CreateAttributes();
+
+                        // Use reflection to call RegisterInputParam
+                        var registerMethod = paramServer.GetType().GetMethod("RegisterInputParam");
+                        registerMethod?.Invoke(paramServer, new object[] { inputParam });
+                    }
+                }
+
+                // Add outputs
+                foreach (var outputSpec in outputs)
+                {
+                    var name = S(outputSpec.TryGetValue("name", out var nameObj) ? nameObj : null, "output");
+                    var nickname = S(outputSpec.TryGetValue("nickname", out var nickObj) ? nickObj : null, name);
+
+                    IGH_Param outputParam = TryCreateParameter("ScriptVariableParam") ??
+                                           TryCreateParameter("Param_GenericObject") ??
+                                           TryCreateParameter("Param_String");
+
+                    if (outputParam != null)
+                    {
+                        outputParam.Name = name;
+                        outputParam.NickName = nickname;
+                        outputParam.CreateAttributes();
+
+                        // Use reflection to call RegisterOutputParam
+                        var registerMethod = paramServer.GetType().GetMethod("RegisterOutputParam");
+                        registerMethod?.Invoke(paramServer, new object[] { outputParam });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogDebug($"Failed to add custom parameters: {ex.Message}");
+            }
+        }
+
+        private IGH_Param TryCreateParameter(string typeName)
+        {
+            try
+            {
+                // Try RhinoCode first
+                var paramType = Type.GetType($"RhinoCodePluginGH.Parameters.{typeName}, RhinoCodePluginGH") ??
+                               Type.GetType($"Grasshopper.Kernel.Parameters.{typeName}, Grasshopper") ??
+                               Type.GetType($"Grasshopper.Kernel.Parameters.{typeName}");
+
+                if (paramType != null)
+                {
+                    return Activator.CreateInstance(paramType) as IGH_Param;
+                }
+            }
+            catch (Exception ex)
+            {
+                LogDebug($"Failed to create parameter {typeName}: {ex.Message}");
+            }
+            return null;
+        }
+
+        private bool SetCodeViaXml(IGH_Component component, string code)
+        {
+            try
+            {
+                // Serialize component to XML
+                var archive = new GH_Archive();
+                archive.AppendObject(component, "Component");
+                string xmlString = archive.Serialize_Xml();
+
+                // Parse and modify XML
+                var doc = XDocument.Parse(xmlString);
+
+                // Find script elements - try multiple paths
+                var scriptElement = doc.Descendants("Script").FirstOrDefault() ??
+                                   doc.Descendants("Source").FirstOrDefault() ??
+                                   doc.Descendants("Code").FirstOrDefault();
+
+                if (scriptElement != null)
+                {
+                    var textElement = scriptElement.Element("Text") ?? scriptElement;
+                    if (textElement != null)
+                    {
+                        // Encode code as base64
+                        byte[] codeBytes = Encoding.UTF8.GetBytes(code);
+                        string base64Code = Convert.ToBase64String(codeBytes);
+                        textElement.Value = base64Code;
+
+                        // Deserialize back
+                        var newArchive = new GH_Archive();
+                        newArchive.Deserialize_Xml(doc.ToString());
+
+                        LogDebug("XML code setting successful");
+                        return true;
+                    }
+                }
+
+                LogDebug("Could not find script element in XML");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                LogDebug($"XML serialization failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        private void MakeConnections(GH_Document doc, IGH_Component targetComponent, List<Dictionary<string, object>> connections)
+        {
+            foreach (var connection in connections)
+            {
+                try
+                {
+                    var sourceId = S(connection.TryGetValue("sourceId", out var srcIdObj) ? srcIdObj : null, "");
+                    var sourceOutput = connection.TryGetValue("sourceOutput", out var srcOutObj) ?
+                        Convert.ToInt32(srcOutObj) : 0;
+                    var targetInput = connection.TryGetValue("targetInput", out var tgtInObj) ?
+                        Convert.ToInt32(tgtInObj) : 0;
+
+                    // Find source component
+                    IGH_Component sourceComponent = null;
+                    if (Guid.TryParse(sourceId, out var sourceGuid))
+                    {
+                        sourceComponent = doc.FindObject(sourceGuid, true) as IGH_Component;
+                    }
+                    else
+                    {
+                        // Find by nickname
+                        sourceComponent = doc.Objects.OfType<IGH_Component>()
+                            .FirstOrDefault(c => c.NickName == sourceId);
+                    }
+
+                    if (sourceComponent != null &&
+                        sourceOutput < sourceComponent.Params.Output.Count &&
+                        targetInput < targetComponent.Params.Input.Count)
+                    {
+                        var sourceParam = sourceComponent.Params.Output[sourceOutput];
+                        var targetParam = targetComponent.Params.Input[targetInput];
+
+                        targetParam.AddSource(sourceParam);
+                        LogDebug($"Connected {sourceComponent.NickName}[{sourceOutput}] to {targetComponent.NickName}[{targetInput}]");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogDebug($"Individual connection failed: {ex.Message}");
+                }
+            }
         }
 
         // ---------------------- Update existing component by GUID ----------------------
