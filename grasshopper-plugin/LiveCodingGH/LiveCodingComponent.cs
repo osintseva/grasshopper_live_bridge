@@ -953,105 +953,185 @@ namespace LiveCoding
             List<Dictionary<string, object>> inputs, List<Dictionary<string, object>> outputs,
             List<Dictionary<string, object>> connections)
         {
-            // Check if the official API is available
-            var pythonType = Type.GetType("RhinoCodePluginGH.Components.Python3Component, RhinoCodePluginGH");
-            if (pythonType == null)
+            try
             {
-                LogDebug("Python3Component type not found");
+                // Try to use the direct API approach from Ehsan's forum post
+                LogDebug("Attempting to create Python3Component using direct API");
+
+                // First check if the types are available
+                var pythonType = Type.GetType("RhinoCodePluginGH.Components.Python3Component, RhinoCodePluginGH");
+                var paramType = Type.GetType("RhinoCodePluginGH.Parameters.ScriptVariableParam, RhinoCodePluginGH");
+
+                if (pythonType == null)
+                {
+                    LogDebug("RhinoCodePluginGH.Components.Python3Component type not found - API not available");
+                    return null;
+                }
+
+                if (paramType == null)
+                {
+                    LogDebug("RhinoCodePluginGH.Parameters.ScriptVariableParam type not found - API not available");
+                    return null;
+                }
+
+                // Try the Create method as shown in forum: Python3Component.Create("MyScript", code)
+                var createMethod = pythonType.GetMethod("Create", BindingFlags.Public | BindingFlags.Static);
+                if (createMethod == null)
+                {
+                    LogDebug("Python3Component.Create static method not found");
+                    return null;
+                }
+
+                // Create the component using the API
+                object component = null;
+                var createParams = createMethod.GetParameters();
+
+                // Try different Create overloads
+                if (createParams.Length == 2 &&
+                    createParams[0].ParameterType == typeof(string) &&
+                    createParams[1].ParameterType == typeof(string))
+                {
+                    // Create(string name, string source)
+                    component = createMethod.Invoke(null, new object[] { "AdvancedPython", code });
+                    LogDebug("Used Create(string, string) overload");
+                }
+                else if (createParams.Length == 1 && createParams[0].ParameterType == typeof(string))
+                {
+                    // Create(string name) - then set source separately
+                    component = createMethod.Invoke(null, new object[] { "AdvancedPython" });
+                    if (component != null)
+                    {
+                        var setSourceMethod = pythonType.GetMethod("SetSource");
+                        setSourceMethod?.Invoke(component, new object[] { code });
+                    }
+                    LogDebug("Used Create(string) overload with separate SetSource");
+                }
+                else
+                {
+                    LogDebug($"No suitable Create method found. Available parameters: {createParams.Length}");
+                    return null;
+                }
+
+                if (component == null)
+                {
+                    LogDebug("Failed to create Python3Component instance");
+                    return null;
+                }
+
+                var ghComponent = component as IGH_Component;
+                if (ghComponent == null)
+                {
+                    LogDebug("Created component is not IGH_Component");
+                    return null;
+                }
+
+                LogDebug($"Successfully created Python3Component, adding {inputs.Count} inputs and {outputs.Count} outputs");
+
+                // Add custom inputs using the ScriptVariableParam approach from forum
+                foreach (var inputSpec in inputs)
+                {
+                    var name = S(inputSpec.TryGetValue("name", out var nameObj) ? nameObj : null, "input");
+                    var nickname = S(inputSpec.TryGetValue("nickname", out var nickObj) ? nickObj : null, name);
+                    var optional = inputSpec.TryGetValue("optional", out var optObj) && optObj is bool opt ? opt : true;
+                    var access = S(inputSpec.TryGetValue("access", out var accessObj) ? accessObj : null, "item");
+
+                    // Create ScriptVariableParam as shown in forum: new ScriptVariableParam("first")
+                    var inputParam = Activator.CreateInstance(paramType, new object[] { name });
+                    if (inputParam != null)
+                    {
+                        // Set properties as shown in forum
+                        var prettyNameProp = paramType.GetProperty("PrettyName");
+                        prettyNameProp?.SetValue(inputParam, nickname);
+
+                        var optionalProp = paramType.GetProperty("Optional");
+                        optionalProp?.SetValue(inputParam, optional);
+
+                        var accessProp = paramType.GetProperty("Access");
+                        if (accessProp != null)
+                        {
+                            GH_ParamAccess accessValue = GH_ParamAccess.item;
+                            var accessLower = access.ToLower();
+                            if (accessLower == "list")
+                                accessValue = GH_ParamAccess.list;
+                            else if (accessLower == "tree")
+                                accessValue = GH_ParamAccess.tree;
+
+                            accessProp.SetValue(inputParam, accessValue);
+                        }
+
+                        // CreateAttributes and register as shown in forum
+                        var createAttribMethod = inputParam.GetType().GetMethod("CreateAttributes");
+                        createAttribMethod?.Invoke(inputParam, null);
+
+                        var registerInputMethod = ghComponent.Params.GetType().GetMethod("RegisterInputParam");
+                        registerInputMethod?.Invoke(ghComponent.Params, new object[] { inputParam });
+
+                        LogDebug($"Added input parameter: {name} ({nickname})");
+                    }
+                }
+
+                // Add custom outputs
+                foreach (var outputSpec in outputs)
+                {
+                    var name = S(outputSpec.TryGetValue("name", out var nameObj) ? nameObj : null, "output");
+                    var nickname = S(outputSpec.TryGetValue("nickname", out var nickObj) ? nickObj : null, name);
+
+                    var outputParam = Activator.CreateInstance(paramType, new object[] { name });
+                    if (outputParam != null)
+                    {
+                        var prettyNameProp = paramType.GetProperty("PrettyName");
+                        prettyNameProp?.SetValue(outputParam, nickname);
+
+                        var createAttribMethod = outputParam.GetType().GetMethod("CreateAttributes");
+                        createAttribMethod?.Invoke(outputParam, null);
+
+                        var registerOutputMethod = ghComponent.Params.GetType().GetMethod("RegisterOutputParam");
+                        registerOutputMethod?.Invoke(ghComponent.Params, new object[] { outputParam });
+
+                        LogDebug($"Added output parameter: {name} ({nickname})");
+                    }
+                }
+
+                // Call VariableParameterMaintenance as shown in forum
+                var maintenanceMethod = pythonType.GetMethod("VariableParameterMaintenance");
+                if (maintenanceMethod != null)
+                {
+                    maintenanceMethod.Invoke(component, null);
+                    LogDebug("Called VariableParameterMaintenance");
+                }
+                else
+                {
+                    LogDebug("VariableParameterMaintenance method not found");
+                }
+
+                // Position and add to document
+                ghComponent.CreateAttributes();
+                ghComponent.Attributes.Pivot = new PointF(x, y);
+                doc.AddObject(ghComponent, true);
+
+                LogDebug("Component added to document successfully");
+
+                // Handle connections after adding to document
+                doc.ScheduleSolution(15, _ => {
+                    try
+                    {
+                        MakeConnections(doc, ghComponent, connections);
+                        ghComponent.ExpireSolution(true);
+                        LogDebug("Connections and solution update completed");
+                    }
+                    catch (Exception ex)
+                    {
+                        LogDebug($"Connection failed: {ex.Message}");
+                    }
+                });
+
+                return ghComponent;
+            }
+            catch (Exception ex)
+            {
+                LogDebug($"CreateAdvancedPython814 failed: {ex.Message}");
                 return null;
             }
-
-            var paramType = Type.GetType("RhinoCodePluginGH.Parameters.ScriptVariableParam, RhinoCodePluginGH");
-            if (paramType == null)
-            {
-                LogDebug("ScriptVariableParam type not found");
-                return null;
-            }
-
-            // Try to create using the new API
-            var createMethod = pythonType.GetMethod("Create", BindingFlags.Public | BindingFlags.Static,
-                null, new[] { typeof(string), typeof(string) }, null);
-
-            if (createMethod == null)
-            {
-                LogDebug("Python3Component.Create method not found");
-                return null;
-            }
-
-            var component = createMethod.Invoke(null, new object[] { "AdvancedPython", code }) as IGH_Component;
-            if (component == null)
-            {
-                LogDebug("Failed to create Python3Component instance");
-                return null;
-            }
-
-            // Add custom inputs
-            foreach (var inputSpec in inputs)
-            {
-                var name = S(inputSpec.TryGetValue("name", out var nameObj) ? nameObj : null, "input");
-                var nickname = S(inputSpec.TryGetValue("nickname", out var nickObj) ? nickObj : null, name);
-                var optional = inputSpec.TryGetValue("optional", out var optObj) && optObj is bool opt ? opt : true;
-                var access = S(inputSpec.TryGetValue("access", out var accessObj) ? accessObj : null, "item");
-
-                var inputParam = Activator.CreateInstance(paramType) as IGH_Param;
-                if (inputParam != null)
-                {
-                    inputParam.Name = name;
-                    inputParam.NickName = nickname;
-                    inputParam.Optional = optional;
-
-                    // Set access type
-                    if (access.ToLower() == "list")
-                        inputParam.Access = GH_ParamAccess.list;
-                    else if (access.ToLower() == "tree")
-                        inputParam.Access = GH_ParamAccess.tree;
-                    else
-                        inputParam.Access = GH_ParamAccess.item;
-
-                    inputParam.CreateAttributes();
-                    component.Params.RegisterInputParam(inputParam);
-                }
-            }
-
-            // Add custom outputs
-            foreach (var outputSpec in outputs)
-            {
-                var name = S(outputSpec.TryGetValue("name", out var nameObj) ? nameObj : null, "output");
-                var nickname = S(outputSpec.TryGetValue("nickname", out var nickObj) ? nickObj : null, name);
-
-                var outputParam = Activator.CreateInstance(paramType) as IGH_Param;
-                if (outputParam != null)
-                {
-                    outputParam.Name = name;
-                    outputParam.NickName = nickname;
-                    outputParam.CreateAttributes();
-                    component.Params.RegisterOutputParam(outputParam);
-                }
-            }
-
-            // Finalize parameter changes
-            var maintenanceMethod = pythonType.GetMethod("VariableParameterMaintenance");
-            maintenanceMethod?.Invoke(component, null);
-
-            // Position and add to document
-            component.CreateAttributes();
-            component.Attributes.Pivot = new PointF(x, y);
-            doc.AddObject(component, true);
-
-            // Handle connections after adding to document
-            doc.ScheduleSolution(10, _ => {
-                try
-                {
-                    MakeConnections(doc, component, connections);
-                    component.ExpireSolution(true);
-                }
-                catch (Exception ex)
-                {
-                    LogDebug($"Connection failed: {ex.Message}");
-                }
-            });
-
-            return component;
         }
 
         // ---------------------- XML-based Python Component Creation ----------------------
