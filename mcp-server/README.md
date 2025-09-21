@@ -39,16 +39,51 @@ Ensure your Grasshopper plugin is running, then restart Claude Code and test wit
 
 ## Architecture
 
-The MCP server is a **hybrid server** providing two interfaces:
+The MCP server is a **hybrid server** providing two interfaces with intelligent caching:
 
 1. **MCP Protocol (stdio)** - For AI agents like Claude Code
 2. **HTTP REST API** - For VSCode extensions and web clients
 
 ```
 Claude Code ←→ MCP Protocol (stdio) ←→┐
-                                      ├→ Shared State → Grasshopper WebSocket
-VSCode/Web  ←→ HTTP API (port 3001) ←→┘                  (ws://localhost:8181)
+                                      ├→ Smart Cache → Grasshopper WebSocket
+VSCode/Web  ←→ HTTP API (port 3001) ←→┘   + State Store   (ws://localhost:8181)
 ```
+
+### Caching & State Management
+
+The server includes a sophisticated caching system for optimal performance:
+
+#### Canvas Cache (`src/state/canvas-cache.js`)
+- **TTL-based caching** (15 seconds default) for canvas pseudocode
+- **Intelligent fallback** - returns latest snapshot if Grasshopper is unavailable
+- **Component extraction** - parses individual components from pseudocode using regex
+- **Different cache strategies** for canvas vs selection data
+
+#### State Store (`src/state/store.js`)
+- **Canvas snapshots** - keeps last 10 timestamped snapshots for fallback
+- **Event logging** - maintains last 1000 events for debugging
+- **Script mappings** - tracks componentUuid → filePath relationships
+- **Connection monitoring** - tracks Grasshopper WebSocket health
+- **Auto-cleanup** - prevents memory leaks with TTL expiration
+
+#### Example Cache Flow
+```javascript
+// 1st call - fresh data from Grasshopper
+get_canvas_state() → WebSocket call → Cache for 15s → Return pseudocode
+
+// 2nd call within 15s - instant response
+get_canvas_state() → Return cached data (no WebSocket)
+
+// If Grasshopper disconnects
+get_canvas_state() → WebSocket fails → Return latest snapshot as fallback
+```
+
+This design ensures:
+- **Fast responses** for repeated canvas queries
+- **Resilience** when Grasshopper is temporarily unavailable
+- **Fresh data** when the canvas actually changes
+- **Memory efficiency** with automatic cleanup
 
 ## Available MCP Tools
 
@@ -113,6 +148,7 @@ npm run hybrid:verbose
 ```
 mcp-server/
 ├── hybrid-server.js         # Main entry point
+├── mcp-server.js           # Pure MCP server (legacy)
 ├── package.json            # Dependencies and scripts
 ├── src/
 │   ├── servers/
@@ -121,7 +157,10 @@ mcp-server/
 │   ├── tools/              # MCP tool implementations
 │   │   ├── canvas.js       # Canvas analysis tools
 │   │   └── scripts.js      # Script management tools
-│   ├── state/              # State management
+│   ├── state/              # State management & caching
+│   │   ├── canvas-cache.js # Smart canvas data cache with TTL
+│   │   └── store.js        # Central state store with snapshots
+│   ├── websocket-client.js # Grasshopper WebSocket client
 │   └── utils/              # Utilities and helpers
 └── README.md               # This file
 ```
