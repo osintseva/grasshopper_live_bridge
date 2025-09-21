@@ -98,10 +98,10 @@ export function createHttpServer(config = {}) {
   app.post('/api/canvas/query', async (req, res) => {
     try {
       const { query, source, filePath } = req.body;
-      const result = await canvasTools.queryCanvasJson({ 
-        query, 
-        source, 
-        filePath 
+      const result = await canvasTools.queryCanvasPseudocode({
+        query,
+        source,
+        filePath
       });
       
       res.json({

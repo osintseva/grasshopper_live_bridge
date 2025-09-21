@@ -2,13 +2,11 @@
   "name": "mcp-server",
   "version": "1.0.0",
   "description": "A Middleware and Computation Platform (MCP) server for Grasshopper.",
-  "main": "server.js",
+  "main": "hybrid-server.js",
   "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "mcp": "node mcp-server.js",
-    "hybrid": "node hybrid-server.js",
-    "hybrid:verbose": "node hybrid-server.js --verbose",
+    "start": "node hybrid-server.js",
+    "start:verbose": "node hybrid-server.js --verbose",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

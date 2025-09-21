@@ -1,154 +1,181 @@
-# MCP Server - Grasshopper Bridge 🚀
+# 🚀 Grasshopper AI Bridge
 
-Node.js MCP (Model Context Protocol) server that bridges Grasshopper to Claude Code and provides HTTP API for external tools.
+Connect your Grasshopper definitions to AI assistants like Claude Code! This bridge lets AI understand and help with your parametric designs.
 
-## Prerequisites
+## 🎯 What This Does
 
-- **Node.js v18+** installed
-- **Grasshopper plugin** running (see `../grasshopper-plugin/README.md`)
-- **Claude Code desktop app** (for MCP integration)
-- WebSocket component active on port 8181
+This tool creates a smart connection between:
+- **Your Grasshopper definitions** (the visual programming you do in Rhino)
+- **AI assistants** (like Claude Code) that can understand and help with your designs
+- **Web tools** for developers who want to build extensions
 
-## Quick Setup
+Think of it as a **translator** that helps AI understand what you're building in Grasshopper!
 
-All commands should be run from this directory (`mcp-server/`):
+## 🏃‍♂️ Quick Start
 
-### 1. Install Dependencies
+### ✅ What You Need
+- **Rhino with Grasshopper** running
+- **Node.js** installed on your computer ([Download here](https://nodejs.org/))
+- **Claude Code desktop app** ([Get it here](https://claude.ai/))
 
+### 🚀 Setup (3 Steps)
+
+**1. Install the bridge**
 ```bash
+cd mcp-server
 npm install
 ```
 
-### 2. Add to Claude Code
-
+**2. Connect to Claude Code**
 ```bash
-# For global access
 claude mcp add grasshopper-bridge node "$(pwd)/hybrid-server.js"
-
-# Verify installation
-claude mcp list
-claude mcp get grasshopper-bridge
 ```
 
-### 3. Test Connection
+**3. Test it works**
+Open Claude Code and try saying:
+- *"Get my current Grasshopper canvas"*
+- *"What components do I have in my definition?"*
+- *"Help me understand what this Grasshopper file does"*
 
-Ensure your Grasshopper plugin is running, then restart Claude Code and test with:
-- "Use the hello_world MCP tool"
-- "Get the current Grasshopper canvas state"
-- "List available MCP tools"
+## 🎉 What You Can Do
 
-## Architecture
+Once connected, you can ask Claude Code to:
 
-The MCP server is a **hybrid server** providing two interfaces with intelligent caching:
+### 📊 **Understand Your Designs**
+- *"Explain what this Grasshopper definition does"*
+- *"What's the main workflow in my current canvas?"*
+- *"How many components do I have?"*
 
-1. **MCP Protocol (stdio)** - For AI agents like Claude Code
-2. **HTTP REST API** - For VSCode extensions and web clients
+### 🔍 **Find Things**
+- *"Find all the offset components"*
+- *"Show me components with errors"*
+- *"What sliders control my design?"*
 
+### 🛠️ **Help With Code**
+- *"Create a Python script for this component"*
+- *"Help me write code to generate buildings"*
+- *"Fix the script in this component"*
+
+### 🎯 **Get Specific Info**
+- *"What's connected to this component?"*
+- *"Show me the selected components"*
+- *"Give me statistics about my canvas"*
+
+## 🆘 Troubleshooting
+
+### ❌ "Cannot connect to Grasshopper"
+1. **Make sure Grasshopper is open** in Rhino
+2. **Check the plugin is loaded** - you should see a "Live Coding Controller" component
+3. **Place the component** on your canvas (it creates the connection)
+
+### ❌ "MCP Server not working"
+1. **Restart Claude Code** after setup
+2. **Check the path** in your MCP configuration is correct
+3. **Try the test**: `claude mcp list` should show "grasshopper-bridge"
+
+### ❌ "Commands not working"
+1. **Use natural language** - say "get my canvas" instead of technical commands
+2. **Make sure Grasshopper is active** with a definition open
+3. **Check the Live Coding component** is on your canvas
+
+## 🎨 Examples
+
+Here are some things you can try once it's working:
+
+### For Designers
 ```
-Claude Code ←→ MCP Protocol (stdio) ←→┐
-                                      ├→ Smart Cache → Grasshopper WebSocket
-VSCode/Web  ←→ HTTP API (port 3001) ←→┘   + State Store   (ws://localhost:8181)
+"Analyze my current Grasshopper definition"
+"What does this design do?"
+"How can I improve this workflow?"
+"Find components that might be causing problems"
 ```
 
-### Caching & State Management
-
-The server includes a sophisticated caching system for optimal performance:
-
-#### Canvas Cache (`src/state/canvas-cache.js`)
-- **TTL-based caching** (15 seconds default) for canvas pseudocode
-- **Intelligent fallback** - returns latest snapshot if Grasshopper is unavailable
-- **Component extraction** - parses individual components from pseudocode using regex
-- **Different cache strategies** for canvas vs selection data
-
-#### State Store (`src/state/store.js`)
-- **Canvas snapshots** - keeps last 10 timestamped snapshots for fallback
-- **Event logging** - maintains last 1000 events for debugging
-- **Script mappings** - tracks componentUuid → filePath relationships
-- **Connection monitoring** - tracks Grasshopper WebSocket health
-- **Auto-cleanup** - prevents memory leaks with TTL expiration
-
-#### Example Cache Flow
-```javascript
-// 1st call - fresh data from Grasshopper
-get_canvas_state() → WebSocket call → Cache for 15s → Return pseudocode
-
-// 2nd call within 15s - instant response
-get_canvas_state() → Return cached data (no WebSocket)
-
-// If Grasshopper disconnects
-get_canvas_state() → WebSocket fails → Return latest snapshot as fallback
+### For Advanced Users
+```
+"Create a Python script to generate random points"
+"Help me optimize this definition for performance"
+"Show me the data flow in this definition"
+"Generate code to export geometry to different formats"
 ```
 
-This design ensures:
-- **Fast responses** for repeated canvas queries
-- **Resilience** when Grasshopper is temporarily unavailable
-- **Fresh data** when the canvas actually changes
-- **Memory efficiency** with automatic cleanup
+---
 
-## Available MCP Tools
+## 🔧 Technical Details
 
-### Canvas Analysis
-- `get_canvas_state` - Complete canvas state and structure
-- `get_selection` - Currently selected components
-- `query_canvas_json` - JSONPath queries on canvas data
-- `get_component_info` - Detailed component information
-- `get_canvas_statistics` - Canvas metrics and statistics
-- `find_components` - Search by name, type, or error status
+<details>
+<summary>Click to expand technical information</summary>
 
-### Script Management
+### Architecture
+The bridge runs as a hybrid server providing:
+- **MCP Protocol** (stdio) for AI agents like Claude Code
+- **HTTP REST API** (port 3000) for web applications and extensions
+- **WebSocket Client** connecting to Grasshopper plugin at `ws://localhost:8181/live`
+
+### Available Tools
+The bridge provides 12 MCP tools for AI interaction:
+
+**Canvas Analysis (7 tools)**
+- `get_canvas_state` - Get complete canvas pseudocode
+- `get_selection` - Get currently selected components
+- `query_canvas_pseudocode` - Search canvas with text/regex
+- `analyze_pseudocode` - Prepare canvas for technical analysis
+- `get_component_info` - Get details about specific components
+- `get_canvas_statistics` - Get canvas metrics and statistics
+- `find_components` - Search components by name/type
+
+**Script Management (5 tools)**
 - `create_script_file` - Create Python/C# script files
 - `push_script_update` - Deploy scripts to Grasshopper
 - `list_scripts` - View all project scripts
 - `confirm_last_update` - Verify script deployment
 - `delete_script_file` - Remove script files
 
-### Development
-- `hello_world` - Test server connection
-- `get_recent_logs` - View server event logs
+### HTTP API Endpoints
+For developers building extensions:
 
-## HTTP API (For VSCode/Web Development)
-
-### Status & Canvas
-- `GET /api/status` - Server and connection status
-- `GET /api/canvas` - Canvas state with optional selection
-- `POST /api/canvas/query` - JSONPath queries
-- `GET /api/components/:uuid` - Component details
-
-### Scripts
+- `GET /api/canvas` - Get canvas state
+- `GET /api/selection` - Get current selection
+- `POST /api/canvas/query` - Query canvas data
+- `GET /api/canvas/statistics` - Get canvas statistics
+- `GET /api/components/:uuid` - Get component details
 - `GET /api/scripts` - List all scripts
 - `POST /api/scripts/create` - Create new script
 - `POST /api/scripts/push` - Deploy script changes
 - `DELETE /api/scripts/:uuid` - Delete script
+- `GET /api/events` - Get event log
+- `GET /api/snapshots` - Get canvas history
 
-### Events
-- `GET /api/events` - Event log with filtering
-- `GET /api/snapshots` - Canvas history snapshots
+### Caching System
+The bridge includes intelligent caching:
+- **15-second TTL** for canvas data
+- **Automatic fallback** to snapshots when Grasshopper unavailable
+- **Memory management** with automatic cleanup
+- **Component extraction** from pseudocode for fast lookups
 
-## Manual Development Modes
+### Manual Development
+For developers working on the bridge itself:
 
-⚠️ **Only for development** - Claude Code manages the server automatically when configured
-
-### HTTP-Only (VSCode development)
 ```bash
+# Start the server manually
 npm start
+
+# Start with verbose logging
+npm run start:verbose
+
+# Test connection
+curl http://localhost:3000/api/status
 ```
 
-### Hybrid Mode (Both MCP + HTTP)
+### Configuration
+The server can be configured via command line:
 ```bash
-npm run hybrid
+node hybrid-server.js --port 3000 --verbose
 ```
 
-### With Verbose Logging
-```bash
-npm run hybrid:verbose
-```
-
-## Project Structure
-
+### Project Structure
 ```
 mcp-server/
 ├── hybrid-server.js         # Main entry point
-├── mcp-server.js           # Pure MCP server (legacy)
 ├── package.json            # Dependencies and scripts
 ├── src/
 │   ├── servers/
@@ -165,52 +192,4 @@ mcp-server/
 └── README.md               # This file
 ```
 
-## Troubleshooting
-
-### MCP Server Not Working
-1. **Check prerequisites**: Grasshopper plugin must be running
-2. **Restart Claude Code** after adding MCP server
-3. **Use absolute paths** in MCP configuration
-4. **Kill manual processes** if you started server manually:
-   ```bash
-   # Windows
-   taskkill /f /im node.exe
-   # macOS/Linux
-   killall node
-   ```
-
-### Cannot Connect to Grasshopper
-1. **Verify plugin is active**: See `../grasshopper-plugin/README.md`
-2. **Check port 8181**: Ensure no other applications are using it
-3. **Test connection**: Use `../scripts/test-connection.js`
-
-### Port Conflicts
-If you get port conflicts, ensure no manual server instances are running before using Claude Code.
-
-## Alternative Configuration (Advanced)
-
-Instead of Claude Code CLI, you can manually edit the Claude desktop config:
-
-**Windows**: `%APPDATA%\claude-desktop\claude_desktop_config.json`
-**macOS/Linux**: `~/.config/claude-desktop/claude_desktop_config.json`
-
-```json
-{
-  "mcp": {
-    "tools": [
-      {
-        "command": ["node", "/full/path/to/hybrid-server.js"],
-        "transport": {
-          "kind": "stdio"
-        }
-      }
-    ]
-  }
-}
-```
-
-## Next Steps
-
-1. **Test the tools**: Try MCP tools in Claude Code
-2. **Development guides**: See `DEVELOPMENT_GUIDES.md` for extending functionality
-3. **HTTP API testing**: Use `curl` or Postman with the HTTP endpoints
+</details>

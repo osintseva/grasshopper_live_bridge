@@ -9,7 +9,7 @@ This monorepo contains four independent components:
 | Component | Description | Technology |
 |-----------|-------------|------------|
 | **[grasshopper-plugin/](./grasshopper-plugin/)** | C# Grasshopper component with WebSocket API | .NET Framework 4.8 |
-| **[mcp-server/](./mcp-server/)** | MCP bridge server for Claude Code integration | Node.js |
+| **[mcp-server/](./mcp-server/)** | 🤖 AI Bridge for Claude Code integration | Node.js |
 | **[scripts/](./scripts/)** | Development and testing utilities | Node.js |
 | **[tools/](./tools/)** | AI development workflow utilities | Python |
 
@@ -32,13 +32,17 @@ Copy-Item "LiveCodingGH\bin\Release\net48\LiveCodingGH.gha" "$env:APPDATA\Grassh
 4. **Save your .gh file** to ensure the component stays active
 5. **Troubleshooting**: If it says "server not running", try disabling and re-enabling the component
 
-### 2. Setup MCP Server for Claude Code
+### 2. Setup AI Bridge for Claude Code
 
 ```bash
 cd mcp-server
 npm install
 claude mcp add grasshopper-bridge node "$(pwd)/hybrid-server.js"
 ```
+
+**Then restart Claude Code and try:**
+- *"Get my current Grasshopper canvas"*
+- *"Help me understand this definition"*
 
 ### 3. Test Connection
 
