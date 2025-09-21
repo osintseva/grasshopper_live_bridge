@@ -11,7 +11,7 @@ This monorepo contains four independent components:
 | **[grasshopper-plugin/](./grasshopper-plugin/)** | C# Grasshopper component with WebSocket API | .NET Framework 4.8 |
 | **[mcp-server/](./mcp-server/)**                 | 🤖 AI Bridge for Claude Code integration     | Node.js            |
 | **[scripts/](./scripts/)**                       | Development and testing utilities           | Node.js            |
-| **[tools/](./tools/)**                           | AI development workflow utilities           | Python             |
+
 
 ## Quick Start 🚀
 
