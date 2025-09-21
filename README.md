@@ -6,12 +6,12 @@ WebSocket-enabled Grasshopper component for live coding and AI-driven design wit
 
 This monorepo contains four independent components:
 
-| Component | Description | Technology |
-|-----------|-------------|------------|
+| Component                                        | Description                                 | Technology         |
+| ------------------------------------------------ | ------------------------------------------- | ------------------ |
 | **[grasshopper-plugin/](./grasshopper-plugin/)** | C# Grasshopper component with WebSocket API | .NET Framework 4.8 |
-| **[mcp-server/](./mcp-server/)** | 🤖 AI Bridge for Claude Code integration | Node.js |
-| **[scripts/](./scripts/)** | Development and testing utilities | Node.js |
-| **[tools/](./tools/)** | AI development workflow utilities | Python |
+| **[mcp-server/](./mcp-server/)**                 | 🤖 AI Bridge for Claude Code integration     | Node.js            |
+| **[scripts/](./scripts/)**                       | Development and testing utilities           | Node.js            |
+| **[tools/](./tools/)**                           | AI development workflow utilities           | Python             |
 
 ## Quick Start 🚀
 
@@ -44,22 +44,32 @@ claude mcp add grasshopper-bridge node "$(pwd)/hybrid-server.js"
 - *"Get my current Grasshopper canvas"*
 - *"Help me understand this definition"*
 
-### 3. Test Connection
+### 3. Test & Verify Setup
+
+🧪 **Comprehensive Testing Suite Available**
+
+Run the automated test suite to verify all Python component creation methods:
 
 ```bash
-cd scripts
-npm install
-node test-connection.js ping
-node test-connection.js get_canvas_info --timeout=5000
-node test-connection.js get_selection
+cd scripts/testing
+python test_script.py
 ```
+
+**📋 For detailed testing instructions and troubleshooting:** [**PYTHON_COMPONENT_TESTING.md**](./PYTHON_COMPONENT_TESTING.md)
+
+The test suite validates:
+- ✅ All three Python component creation methods (basic, advanced, XML)
+- ✅ Custom inputs/outputs with automatic connections
+- ✅ Cross-method compatibility across Rhino versions
+- ✅ Connection verification through canvas analysis
 
 ## Features ✨
 
 - **🔌 WebSocket API** - Real-time communication with Grasshopper (`ws://localhost:8181/live`)
-- **📊 Canvas Analysis** - Get complete JSON representation of your Grasshopper definition  
-- **⚡ Live Coding** - Create and update Python components remotely
-- **🤖 MCP Integration** - Perfect for AI agents to understand your canvas
+- **📊 Canvas Analysis** - Get complete pseudocode representation of your Grasshopper definition
+- **🐍 Advanced Python Creation** - Three methods for programmatic Python component creation with custom I/O
+- **🔗 Automatic Connections** - Smart component wiring and parameter management
+- **🤖 MCP Integration** - Perfect for AI agents to understand and modify your canvas
 
 ## Architecture
 
@@ -74,9 +84,10 @@ Claude Code ←→ MCP Server ←→ WebSocket ←→ Grasshopper Component
 ## Use Cases 🎯
 
 - **🤖 AI Integration** - MCP servers can analyze canvas structure and provide contextual assistance
-- **⚙️ Automation** - Programmatically create and modify Grasshopper definitions
-- **⚡ Live Coding** - Real-time Python component development
+- **⚙️ Automation** - Programmatically create and modify Grasshopper definitions with custom parameters
+- **⚡ Live Coding** - Real-time Python component development with instant connections
 - **🔗 External Tools** - Connect Grasshopper with other applications and workflows
+- **🧪 Testing & Validation** - Comprehensive test suite for development workflows
 
 ## Development
 
@@ -87,7 +98,6 @@ Each component has its own README with detailed setup and usage instructions. St
 1. **grasshopper-plugin** - Independent (requires Rhino/Grasshopper)
 2. **mcp-server** - Depends on grasshopper-plugin WebSocket server
 3. **scripts** - Depends on grasshopper-plugin WebSocket server
-4. **tools** - Independent utilities for AI development
 
 ---
 
