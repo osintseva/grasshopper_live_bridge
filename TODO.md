@@ -4,10 +4,32 @@ This document tracks the development roadmap for enhanced Claude Code integratio
 
 ## 🚨 **TODO #1: HIGHEST PRIORITY**
 
-### [ ] Verify Python Component Creation Methods
-**Status:** ⚠️ **CRITICAL - MUST BE RESOLVED FIRST**
+### [ ] Understand Custom Input/Output Specification Format
+**Status:** 📖 **RESEARCH NEEDED - CRITICAL PRIORITY**
 
-**Goal:** Determine which Python component creation method works reliably in Rhino 8 with custom inputs/outputs.
+**Goal:** Learn how to specify custom inputs/outputs to Python script components when it's created programmatically.
+
+**Current Status:** Implementation exists in code but functionality not verified and needs to be understood.
+
+---
+
+## 🚨 **TODO #2: SECOND PRIORITY**
+
+### [ ] Learn Component Connection Mechanisms
+**Status:** 📖 **RESEARCH NEEDED - HIGH PRIORITY**
+
+**Goal:** Understand how to connect Python components to existing components in Grasshopper.
+
+**Current Status:** Connection code exists but needs verification and documentation.
+
+---
+
+## 🧪 **TODO #3: TESTING**
+
+### [ ] Test Python Component Creation Methods in Rhino 8
+**Status:** ⚠️ **DEPENDS ON TODO #1 & #2**
+
+**Goal:** Verify which of the three Python component creation methods actually works in current Rhino 8 environment.
 
 **Three Methods to Test:**
 1. **`create_python_script`** - Basic Python component creation
@@ -26,8 +48,8 @@ This document tracks the development roadmap for enhanced Claude Code integratio
 
 ## 🐍 Python Component Management
 
-### [ ] **TODO #2:** Create MCP Tool for Python Script Creation
-**Status:** 🔧 **DEPENDS ON TODO #1**
+### [ ] **TODO #4:** Create MCP Tool for Python Script Creation
+**Status:** 🔧 **DEPENDS ON TODO #1, #2, #3**
 
 **Goal:** Enable Claude Code to execute "convert my script to python code" commands.
 
@@ -46,7 +68,7 @@ This document tracks the development roadmap for enhanced Claude Code integratio
 
 ## 🔍 Component Context Analysis
 
-### [ ] **TODO #3:** Add Component Context Retrieval Tool
+### [ ] **TODO #5:** Add Component Context Retrieval Tool
 **Status:** 💡 **NEW FEATURE**
 
 **Goal:** Help Claude understand component relationships when analyzing specific parts of a definition.
@@ -66,7 +88,7 @@ This document tracks the development roadmap for enhanced Claude Code integratio
 
 ## 📊 Data Preview Enhancement
 
-### [ ] **TODO #4:** Enable Dynamic Data Preview Control
+### [ ] **TODO #6:** Enable Dynamic Data Preview Control
 **Status:** ⚙️ **NEEDS CONFIGURATION**
 
 **Current State:** Data preview functionality exists but is disabled by default.
