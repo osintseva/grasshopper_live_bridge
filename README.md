@@ -42,7 +42,7 @@ claude mcp add grasshopper-bridge node "$(pwd)/hybrid-server.js"
 
 **Then restart Claude Code and try:**
 - *"Get my current Grasshopper canvas"*
-- *"Help me understand this definition"*
+- *"Using MCP server, help me understand currently opened Grasshopper definition"*
 
 ### 3. Test & Verify Setup
 
