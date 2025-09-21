@@ -51,10 +51,10 @@ Once connected, you can ask Claude Code to:
 - *"Show me components with errors"*
 - *"What sliders control my design?"*
 
-### 🛠️ **Help With Code**
-- *"Create a Python script for this component"*
-- *"Help me write code to generate buildings"*
-- *"Fix the script in this component"*
+### 🛠️ **Analyze Your Workflow**
+- *"How can I optimize this definition?"*
+- *"What's the data flow in this design?"*
+- *"Suggest improvements for better performance"*
 
 ### 🎯 **Get Specific Info**
 - *"What's connected to this component?"*
@@ -92,10 +92,10 @@ Here are some things you can try once it's working:
 
 ### For Advanced Users
 ```
-"Create a Python script to generate random points"
 "Help me optimize this definition for performance"
 "Show me the data flow in this definition"
-"Generate code to export geometry to different formats"
+"Analyze the algorithmic complexity of this workflow"
+"Find potential bottlenecks in my definition"
 ```
 
 ---
@@ -112,7 +112,7 @@ The bridge runs as a hybrid server providing:
 - **WebSocket Client** connecting to Grasshopper plugin at `ws://localhost:8181/live`
 
 ### Available Tools
-The bridge provides 12 MCP tools for AI interaction:
+The bridge provides 7 focused MCP tools for AI interaction:
 
 **Canvas Analysis (7 tools)**
 - `get_canvas_state` - Get complete canvas pseudocode
@@ -123,13 +123,6 @@ The bridge provides 12 MCP tools for AI interaction:
 - `get_canvas_statistics` - Get canvas metrics and statistics
 - `find_components` - Search components by name/type
 
-**Script Management (5 tools)**
-- `create_script_file` - Create Python/C# script files
-- `push_script_update` - Deploy scripts to Grasshopper
-- `list_scripts` - View all project scripts
-- `confirm_last_update` - Verify script deployment
-- `delete_script_file` - Remove script files
-
 ### HTTP API Endpoints
 For developers building extensions:
 
@@ -138,10 +131,6 @@ For developers building extensions:
 - `POST /api/canvas/query` - Query canvas data
 - `GET /api/canvas/statistics` - Get canvas statistics
 - `GET /api/components/:uuid` - Get component details
-- `GET /api/scripts` - List all scripts
-- `POST /api/scripts/create` - Create new script
-- `POST /api/scripts/push` - Deploy script changes
-- `DELETE /api/scripts/:uuid` - Delete script
 - `GET /api/events` - Get event log
 - `GET /api/snapshots` - Get canvas history
 

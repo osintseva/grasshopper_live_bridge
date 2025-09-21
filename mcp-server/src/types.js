@@ -2,7 +2,6 @@
 
 export const EventKind = {
   FS_CHANGE: 'FS_CHANGE',
-  SCRIPT_PUSHED: 'SCRIPT_PUSHED',
   APPLIED: 'APPLIED',
   CANVAS_UPDATED: 'CANVAS_UPDATED',
   SELECTION_CHANGED: 'SELECTION_CHANGED',
@@ -59,12 +58,3 @@ export class CanvasSnapshot {
   }
 }
 
-export class ScriptFileInfo {
-  constructor(filePath, componentUuid, language) {
-    this.filePath = filePath;
-    this.componentUuid = componentUuid;
-    this.language = language;
-    this.lastModified = new Date();
-    this.sha256 = null;
-  }
-}

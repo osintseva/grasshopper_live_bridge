@@ -24,9 +24,6 @@ export async function getAvailableResources() {
     mimeType: "application/json"
   });
   
-  // Script resources
-  const scriptResources = await listScriptResources();
-  resources.push(...scriptResources);
   
   // Log resources
   resources.push({
@@ -44,8 +41,6 @@ export async function getResource(uri) {
   
   if (uri.startsWith('gh://canvas/')) {
     return await getCanvasResource(uri);
-  } else if (uri.startsWith('gh://scripts/')) {
-    return await getScriptResource(uri);
   } else if (uri.startsWith('gh://logs/')) {
     return await getLogResource(uri);
   } else {
@@ -99,27 +94,6 @@ async function getCanvasResource(uri) {
   }
 }
 
-async function getScriptResource(uri) {
-  const scriptPath = uri.replace('gh://scripts/', '');
-  const fullPath = path.join('.', 'gh_scripts', scriptPath);
-  
-  if (!(await fs.fileExists(fullPath))) {
-    throw new Error(`Script file not found: ${scriptPath}`);
-  }
-  
-  const content = await fs.readFile(fullPath);
-  const mimeType = getScriptMimeType(path.extname(fullPath));
-  
-  return {
-    contents: [
-      {
-        uri,
-        mimeType,
-        text: content
-      }
-    ]
-  };
-}
 
 async function getLogResource(uri) {
   const store = getStore();
@@ -146,44 +120,3 @@ async function getLogResource(uri) {
   }
 }
 
-async function listScriptResources() {
-  const resources = [];
-  const scriptsDir = path.join('.', 'gh_scripts');
-  
-  if (!(await fs.fileExists(scriptsDir))) {
-    return resources;
-  }
-  
-  try {
-    const allFiles = [
-      ...(await fs.listFiles(scriptsDir, '*.py')),
-      ...(await fs.listFiles(scriptsDir, '*.cs')),
-      ...(await fs.listFiles(scriptsDir, '*.vb'))
-    ];
-    
-    for (const filePath of allFiles) {
-      const relativePath = path.relative('.', filePath);
-      const scriptPath = relativePath.replace('gh_scripts/', '');
-      
-      resources.push({
-        uri: `gh://scripts/${scriptPath}`,
-        name: `Script: ${path.basename(scriptPath)}`,
-        description: `Grasshopper script: ${scriptPath}`,
-        mimeType: getScriptMimeType(path.extname(scriptPath))
-      });
-    }
-  } catch (error) {
-    logger.error('Failed to list script resources', error);
-  }
-  
-  return resources;
-}
-
-function getScriptMimeType(ext) {
-  switch (ext) {
-    case '.py': return 'text/x-python';
-    case '.cs': return 'text/x-csharp';  
-    case '.vb': return 'text/x-vb';
-    default: return 'text/plain';
-  }
-}

@@ -12,7 +12,6 @@ import {
 import { getStore } from '../state/store.js';
 import { getLogger } from '../utils/logger.js';
 import * as canvasTools from '../tools/canvas.js';
-import * as scriptTools from '../tools/scripts.js';
 import * as prompts from '../prompts/index.js';
 
 const logger = getLogger();
@@ -159,145 +158,6 @@ export function createMcpServer(config = {}) {
             additionalProperties: false,
           },
         },
-        
-        // Script tools
-        {
-          name: "create_script_file",
-          description: "Create a new script file for a Grasshopper component",
-          inputSchema: {
-            type: "object",
-            properties: {
-              componentUuid: {
-                type: "string",
-                description: "The UUID of the component"
-              },
-              language: {
-                type: "string",
-                enum: ["python", "cs", "vb"],
-                description: "Script language",
-                default: "python"
-              },
-              nameHint: {
-                type: "string",
-                description: "Suggested name for the script"
-              }
-            },
-            required: ["componentUuid"],
-            additionalProperties: false,
-          },
-        },
-        {
-          name: "push_script_update",
-          description: "Push script changes to Grasshopper",
-          inputSchema: {
-            type: "object",
-            properties: {
-              componentUuid: {
-                type: "string",
-                description: "The UUID of the component"
-              },
-              filePath: {
-                type: "string",
-                description: "Path to the script file"
-              },
-              language: {
-                type: "string",
-                enum: ["python", "cs", "vb"],
-                description: "Script language"
-              }
-            },
-            required: ["componentUuid"],
-            additionalProperties: false,
-          },
-        },
-        {
-          name: "list_scripts",
-          description: "List all script files in the project",
-          inputSchema: {
-            type: "object",
-            properties: {
-              includeContent: {
-                type: "boolean",
-                description: "Include file content",
-                default: false
-              }
-            },
-            additionalProperties: false,
-          },
-        },
-        {
-          name: "confirm_last_update",
-          description: "Confirm the last script update was applied",
-          inputSchema: {
-            type: "object",
-            properties: {
-              componentUuid: {
-                type: "string",
-                description: "The UUID of the component"
-              },
-              sha256: {
-                type: "string",
-                description: "Expected SHA256 hash"
-              }
-            },
-            required: ["componentUuid"],
-            additionalProperties: false,
-          },
-        },
-        {
-          name: "delete_script_file",
-          description: "Delete a script file",
-          inputSchema: {
-            type: "object",
-            properties: {
-              componentUuid: {
-                type: "string",
-                description: "The UUID of the component"
-              },
-              filePath: {
-                type: "string",
-                description: "Path to the script file"
-              }
-            },
-            additionalProperties: false,
-          },
-        },
-        
-        // Testing tools
-        {
-          name: "hello_world",
-          description: "Test connection with a hello world message",
-          inputSchema: {
-            type: "object",
-            properties: {
-              name: {
-                type: "string",
-                description: "Name to greet",
-                default: "World"
-              }
-            },
-            additionalProperties: false,
-          },
-        },
-        {
-          name: "get_recent_logs",
-          description: "Get recent event logs",
-          inputSchema: {
-            type: "object",
-            properties: {
-              limit: {
-                type: "number",
-                description: "Number of logs to retrieve",
-                default: 20
-              },
-              kind: {
-                type: "string",
-                description: "Filter by event kind"
-              }
-            },
-            additionalProperties: false,
-          },
-        },
       ],
     };
   });
@@ -338,39 +198,6 @@ export function createMcpServer(config = {}) {
         
         case "find_components":
           result = await canvasTools.findComponents(args || {});
-          break;
-        
-        // Script tools
-        case "create_script_file":
-          result = await scriptTools.createScriptFile(args || {});
-          break;
-        
-        case "push_script_update":
-          result = await scriptTools.pushScriptUpdate(args || {});
-          break;
-        
-        case "list_scripts":
-          result = await scriptTools.listScripts(args || {});
-          break;
-        
-        case "confirm_last_update":
-          result = await scriptTools.confirmLastUpdate(args || {});
-          break;
-        
-        case "delete_script_file":
-          result = await scriptTools.deleteScriptFile(args || {});
-          break;
-        
-        // Testing tools
-        case "hello_world":
-          result = { message: `Hello, ${args?.name || 'World'}!` };
-          break;
-        
-        case "get_recent_logs":
-          const limit = args?.limit || 20;
-          const kind = args?.kind || null;
-          const events = store.getEvents(0, kind).slice(0, limit);
-          result = { events, count: events.length };
           break;
         
         default:

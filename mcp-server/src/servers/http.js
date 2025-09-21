@@ -3,7 +3,6 @@ import cors from 'cors';
 import { getStore } from '../state/store.js';
 import { getLogger } from '../utils/logger.js';
 import * as canvasTools from '../tools/canvas.js';
-import * as scriptTools from '../tools/scripts.js';
 
 const logger = getLogger();
 
@@ -32,7 +31,6 @@ export function createHttpServer(config = {}) {
         status: '/api/status',
         canvas: '/api/canvas',
         selection: '/api/selection',
-        scripts: '/api/scripts',
         events: '/api/events'
       }
     });
@@ -47,7 +45,6 @@ export function createHttpServer(config = {}) {
       grasshopper: connectionStatus,
       snapshots: state.canvasSnapshots.length,
       events: state.eventLog.length,
-      scripts: state.scriptMappings.length,
       timestamp: new Date().toISOString()
     });
   });
@@ -159,107 +156,7 @@ export function createHttpServer(config = {}) {
       });
     }
   });
-  
-  // ===== Script Routes =====
-  
-  app.get('/api/scripts', async (req, res) => {
-    try {
-      const includeContent = req.query.includeContent === 'true';
-      const scripts = await scriptTools.listScripts({ includeContent });
-      
-      res.json({
-        status: 'success',
-        data: scripts
-      });
-    } catch (error) {
-      logger.error('HTTP: Failed to list scripts', error);
-      res.status(500).json({
-        status: 'error',
-        message: error.message
-      });
-    }
-  });
-  
-  app.post('/api/scripts/create', async (req, res) => {
-    try {
-      const { componentUuid, language, nameHint } = req.body;
-      
-      if (!componentUuid) {
-        res.status(400).json({
-          status: 'error',
-          message: 'componentUuid is required'
-        });
-        return;
-      }
-      
-      const result = await scriptTools.createScriptFile({
-        componentUuid,
-        language,
-        nameHint
-      });
-      
-      res.json({
-        status: 'success',
-        data: result
-      });
-    } catch (error) {
-      logger.error('HTTP: Failed to create script', error);
-      res.status(500).json({
-        status: 'error',
-        message: error.message
-      });
-    }
-  });
-  
-  app.post('/api/scripts/push', async (req, res) => {
-    try {
-      const { componentUuid, filePath, language } = req.body;
-      
-      if (!componentUuid) {
-        res.status(400).json({
-          status: 'error',
-          message: 'componentUuid is required'
-        });
-        return;
-      }
-      
-      const result = await scriptTools.pushScriptUpdate({
-        componentUuid,
-        filePath,
-        language
-      });
-      
-      res.json({
-        status: 'success',
-        data: result
-      });
-    } catch (error) {
-      logger.error('HTTP: Failed to push script', error);
-      res.status(500).json({
-        status: 'error',
-        message: error.message
-      });
-    }
-  });
-  
-  app.delete('/api/scripts/:uuid', async (req, res) => {
-    try {
-      const componentUuid = req.params.uuid;
-      const result = await scriptTools.deleteScriptFile({ componentUuid });
-      
-      res.json({
-        status: 'success',
-        data: result
-      });
-    } catch (error) {
-      logger.error('HTTP: Failed to delete script', error);
-      res.status(500).json({
-        status: 'error',
-        message: error.message
-      });
-    }
-  });
-  
+
   // ===== Event Routes =====
   
   app.get('/api/events', (req, res) => {

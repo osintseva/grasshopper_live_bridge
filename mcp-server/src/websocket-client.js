@@ -168,17 +168,6 @@ export class GrasshopperClient extends EventEmitter {
     return response.data || response;
   }
 
-  async pushScriptUpdate(componentUuid, filePath, language = 'python', sha256 = null) {
-    const response = await this.send('script_updated', {
-      componentUuid,
-      filePath,
-      language,
-      sha256,
-      fileSize: 0, // Will be calculated by Grasshopper
-      idempotencyKey: `${componentUuid}-${Date.now()}`
-    });
-    return response.data || response;
-  }
 
   subscribe(events = []) {
     return this.send('hello', {

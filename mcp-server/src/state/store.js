@@ -12,8 +12,6 @@ class StateStore extends EventEmitter {
       eventLog: [],
       maxEvents: 1000,
       
-      // Script file mappings
-      scriptMappings: new Map(), // componentUuid -> filePath
       
       // Connection status
       connectionStatus: 'disconnected',
@@ -98,27 +96,6 @@ class StateStore extends EventEmitter {
     return events;
   }
 
-  // Script mappings
-  mapScript(componentUuid, filePath, language = 'python') {
-    const mapping = {
-      componentUuid,
-      filePath,
-      language,
-      timestamp: Date.now()
-    };
-    
-    this.state.scriptMappings.set(componentUuid, mapping);
-    this.emit('scriptMapped', mapping);
-    return mapping;
-  }
-
-  getScriptMapping(componentUuid) {
-    return this.state.scriptMappings.get(componentUuid);
-  }
-
-  getAllScriptMappings() {
-    return Array.from(this.state.scriptMappings.values());
-  }
 
   // Connection status
   setConnectionStatus(status) {
@@ -196,7 +173,6 @@ class StateStore extends EventEmitter {
   getState() {
     return {
       ...this.state,
-      scriptMappings: Array.from(this.state.scriptMappings.entries()),
       cache: Array.from(this.state.cache.entries()).map(([key, entry]) => ({
         key,
         expiresAt: entry.expiresAt,
@@ -209,7 +185,6 @@ class StateStore extends EventEmitter {
   reset() {
     this.state.canvasSnapshots = [];
     this.state.eventLog = [];
-    this.state.scriptMappings.clear();
     this.state.cache.clear();
     this.state.connectionStatus = 'disconnected';
     this.state.lastConnectionTime = null;

@@ -3,7 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 
 /**
- * File system utilities for script management
+ * File system utilities
  */
 
 export async function ensureDirectory(dirPath) {
@@ -122,51 +122,6 @@ export function extractUuidFromContent(content) {
   return null;
 }
 
-export function generateScriptFileName(nameHint, uuid, language = 'python') {
-  const extensions = {
-    'python': 'py',
-    'cs': 'cs',
-    'csharp': 'cs',
-    'vb': 'vb',
-    'javascript': 'js'
-  };
-  
-  const ext = extensions[language.toLowerCase()] || 'txt';
-  const safeName = nameHint
-    ? nameHint.replace(/[^a-z0-9_-]/gi, '_').toLowerCase()
-    : 'script';
-  
-  // Include partial UUID for uniqueness
-  const shortUuid = uuid.split('-')[0];
-  
-  return `${safeName}_${shortUuid}.${ext}`;
-}
-
-export async function createScriptFile(componentUuid, language, nameHint, projectDir = '.') {
-  const scriptsDir = path.join(projectDir, 'gh_scripts');
-  await ensureDirectory(scriptsDir);
-  
-  const fileName = generateScriptFileName(nameHint, componentUuid, language);
-  const filePath = path.join(scriptsDir, fileName);
-  
-  // Generate initial content with UUID header
-  const headers = {
-    'python': `# Component UUID: ${componentUuid}\n# ${nameHint || 'Grasshopper Python Script'}\n# Generated at ${new Date().toISOString()}\n\n`,
-    'cs': `// Component UUID: ${componentUuid}\n// ${nameHint || 'Grasshopper C# Script'}\n// Generated at ${new Date().toISOString()}\n\nusing System;\nusing System.Collections.Generic;\nusing Rhino.Geometry;\n\n`,
-    'vb': `' Component UUID: ${componentUuid}\n' ${nameHint || 'Grasshopper VB Script'}\n' Generated at ${new Date().toISOString()}\n\n`
-  };
-  
-  const content = headers[language] || `// Component UUID: ${componentUuid}\n`;
-  
-  await writeFile(filePath, content);
-  
-  return {
-    filePath,
-    fileName,
-    componentUuid,
-    language
-  };
-}
 
 export async function watchDirectory(dirPath, callback, options = {}) {
   const { recursive = true, persistent = true } = options;
