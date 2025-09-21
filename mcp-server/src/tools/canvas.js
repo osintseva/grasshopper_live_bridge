@@ -294,7 +294,7 @@ export async function analyzePseudocode(args = {}) {
     const { fileURLToPath } = await import('url');
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
-    const promptPath = path.join(__dirname, '..', '..', '..', 'misc', 'gh2json_converter', 'grasshopper_analysis_prompt.md');
+    const promptPath = path.join(__dirname, 'grasshopper_analysis_prompt.md');
     const analysisPrompt = await readFile(promptPath);
 
     if (!analysisPrompt) {
