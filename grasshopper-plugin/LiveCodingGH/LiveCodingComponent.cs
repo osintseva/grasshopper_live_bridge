@@ -63,7 +63,7 @@ namespace LiveCoding
             DebugLog.Add(logEntry);
 
             // Keep only last 20 entries
-            if (DebugLog.Count > 20)
+            if (DebugLog.Count > 2000)
                 DebugLog.RemoveAt(0);
         }
 
@@ -934,6 +934,49 @@ second_output = result_second");
                 }
 
                 LogDebug($"Successfully created Python3Component, adding {inputs.Count} inputs and {outputs.Count} outputs");
+
+                // Remove default inputs and outputs (x, y, out, a) before adding custom ones
+                try
+                {
+                    // Clear default input parameters - collect first, then remove
+                    var inputParamsToRemove = new List<IGH_Param>();
+                    foreach (IGH_Param param in ghComponent.Params.Input)
+                    {
+                        inputParamsToRemove.Add(param);
+                    }
+
+                    foreach (var param in inputParamsToRemove)
+                    {
+                        var unregisterInputMethod = ghComponent.Params.GetType().GetMethod("UnregisterInputParameter", new Type[] { typeof(IGH_Param) });
+                        if (unregisterInputMethod != null)
+                        {
+                            unregisterInputMethod.Invoke(ghComponent.Params, new object[] { param });
+                            LogDebug($"Removed default input parameter: {param.Name}");
+                        }
+                    }
+
+                    // Clear default output parameters - collect first, then remove
+                    var outputParamsToRemove = new List<IGH_Param>();
+                    foreach (IGH_Param param in ghComponent.Params.Output)
+                    {
+                        outputParamsToRemove.Add(param);
+                    }
+
+                    foreach (var param in outputParamsToRemove)
+                    {
+                        var unregisterOutputMethod = ghComponent.Params.GetType().GetMethod("UnregisterOutputParameter", new Type[] { typeof(IGH_Param) });
+                        if (unregisterOutputMethod != null)
+                        {
+                            unregisterOutputMethod.Invoke(ghComponent.Params, new object[] { param });
+                            LogDebug($"Removed default output parameter: {param.Name}");
+                        }
+                    }
+                    LogDebug($"Successfully removed {inputParamsToRemove.Count} input and {outputParamsToRemove.Count} output default parameters");
+                }
+                catch (Exception ex)
+                {
+                    LogDebug($"Could not remove default parameters (continuing anyway): {ex.Message}");
+                }
 
                 // Add custom input parameters using the ScriptVariableParam approach
                 foreach (var inputSpec in inputs)

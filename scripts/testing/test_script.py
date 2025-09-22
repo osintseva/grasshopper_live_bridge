@@ -29,6 +29,7 @@ import uuid
 GRASSHOPPER_WS_URL = "ws://localhost:8181/live"
 TIMEOUT = 10.0
 
+
 class GrasshopperTester:
     def __init__(self):
         self.ws = None
@@ -57,7 +58,7 @@ class GrasshopperTester:
         message = {
             "action": action,
             "correlationId": correlation_id,
-            "payload": payload or {}
+            "payload": payload or {},
         }
 
         print(f"📤 Sending: {action}")
@@ -101,137 +102,67 @@ class GrasshopperTester:
         payload = {
             "x": 200,
             "y": 300,
-            "code": """# Proven Python Component Method
+            "code": """# Simple Python Component with Geometry
 import Rhino.Geometry as rg
 import System
-import random
 
-# Process radius input
-base_radius = 2.0
+# Get inputs with defaults
+radius = 5.0
 if 'radius_input' in locals() and radius_input is not None:
-    base_radius = max(0.1, float(radius_input))
+    radius = max(0.1, float(radius_input))
 
-# Process count input
-item_count = 6
+count = 6
 if 'count_input' in locals() and count_input is not None:
-    item_count = max(3, int(count_input))
+    count = max(3, int(count_input))
 
-# Process data list input
-input_data = []
-if 'data_list' in locals() and data_list:
-    input_data = list(data_list)
+# Create a circle
+circle = rg.Circle(rg.Point3d.Origin, radius)
 
-# Generate concentric circles with varying properties
-circles = []
-radii = []
-for i in range(3):
-    radius = base_radius * (1 + i * 0.7)
-    circle = rg.Circle(rg.Point3d.Origin, radius)
-    circles.append(circle.ToNurbsCurve())
-    radii.append(radius)
+# Create polygon points
+points = []
+for i in range(count):
+    angle = (2 * System.Math.PI * i) / count
+    x = radius * System.Math.Cos(angle)
+    y = radius * System.Math.Sin(angle)
+    points.append(rg.Point3d(x, y, 0))
 
-# Generate polygon based on count
-polygon_points = []
-for i in range(item_count):
-    angle = (2 * rg.Math.PI * i) / item_count
-    x = base_radius * 2 * rg.Math.Cos(angle)
-    y = base_radius * 2 * rg.Math.Sin(angle)
-    polygon_points.append(rg.Point3d(x, y, 0))
-
-# Add random variation if we have input data
-if input_data:
-    varied_points = []
-    for i, pt in enumerate(polygon_points):
-        if i < len(input_data):
-            # Use input data to modify points
-            offset = float(str(input_data[i])[:3] if str(input_data[i]) else "0.5")
-        else:
-            offset = random.uniform(0.5, 1.5)
-
-        new_pt = rg.Point3d(pt.X * offset, pt.Y * offset, pt.Z)
-        varied_points.append(new_pt)
-
-    modified_polygon = varied_points
+# Create polyline from points
+if len(points) > 2:
+    points.append(points[0])  # Close the polyline
+    polyline = rg.Polyline(points)
 else:
-    modified_polygon = polygon_points
-
-# Create analysis report
-process_info = f"Proven Method: {len(circles)} circles (radii: {[f'{r:.2f}' for r in radii]}), {len(polygon_points)} polygon points"
-data_analysis = f"Input data: {len(input_data)} items processed" if input_data else "No input data processed"
+    polyline = None
 
 # Set outputs
-output_circles = circles
-output_points = polygon_points
-modified_points = modified_polygon
-component_report = process_info
-data_report = data_analysis
-execution_timestamp = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
+circles = circle.ToNurbsCurve()
+polygon = polyline.ToNurbsCurve() if polyline else None
+vertices = points[:-1] if len(points) > 1 else points  # Remove duplicate closing point
 """,
             "inputs": [
                 {
                     "name": "radius_input",
-                    "nickname": "Radius",
+                    "nickname": "R",
                     "optional": True,
                     "access": "item",
-                    "typeHint": "double"
+                    "typeHint": "double",
                 },
                 {
                     "name": "count_input",
-                    "nickname": "Count",
+                    "nickname": "N",
                     "optional": True,
                     "access": "item",
-                    "typeHint": "number"
+                    "typeHint": "number",
                 },
-                {
-                    "name": "data_list",
-                    "nickname": "Data",
-                    "optional": True,
-                    "access": "list"
-                }
             ],
             "outputs": [
-                {
-                    "name": "output_circles",
-                    "nickname": "Circles"
-                },
-                {
-                    "name": "output_points",
-                    "nickname": "Points"
-                },
-                {
-                    "name": "modified_points",
-                    "nickname": "Modified"
-                },
-                {
-                    "name": "component_report",
-                    "nickname": "Report"
-                },
-                {
-                    "name": "data_report",
-                    "nickname": "Data Info"
-                },
-                {
-                    "name": "execution_timestamp",
-                    "nickname": "Time"
-                }
+                {"name": "circles", "nickname": "C"},
+                {"name": "polygon", "nickname": "P"},
+                {"name": "vertices", "nickname": "V"},
             ],
             "connections": [
-                {
-                    "sourceId": "NumSlider",
-                    "sourceOutput": 0,
-                    "targetInput": 0
-                },
-                {
-                    "sourceId": "CountSlider",
-                    "sourceOutput": 0,
-                    "targetInput": 1
-                },
-                {
-                    "sourceId": "Python Script",  # The source Python component
-                    "sourceOutput": 2,  # Count output (C)
-                    "targetInput": 2
-                }
-            ]
+                {"sourceId": "NumSlider", "sourceOutput": 0, "targetInput": 0},
+                {"sourceId": "CountSlider", "sourceOutput": 0, "targetInput": 1},
+            ],
         }
 
         response = await self.send_command("create_python_component", payload)
@@ -243,53 +174,21 @@ execution_timestamp = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
             return False
 
     async def create_source_components(self):
-        """Create multiple source components for testing connections"""
-        print("\\n🔧 Creating source components for connections...")
+        """Create source sliders for testing connections"""
+        print("\\n🔧 Creating source sliders for connections...")
 
-        # Create number slider
-        slider_payload = {
-            "x": 50,
-            "y": 100,
-            "nickname": "NumSlider"
-        }
+        # Create number slider for radius
+        slider_payload = {"x": 50, "y": 100, "nickname": "NumSlider"}
         slider_response = await self.send_command("create_slider", slider_payload)
 
-        # Create another number slider
-        slider2_payload = {
-            "x": 50,
-            "y": 200,
-            "nickname": "CountSlider"
-        }
+        # Create number slider for count
+        slider2_payload = {"x": 50, "y": 200, "nickname": "CountSlider"}
         slider2_response = await self.send_command("create_slider", slider2_payload)
 
-        # Create a basic Python component as data source
-        source_python_payload = {
-            "x": 50,
-            "y": 300,
-            "code": """# Source Component
-import Rhino.Geometry as rg
-import random
+        success_count = sum([bool(slider_response), bool(slider2_response)])
+        print(f"✅ Created {success_count}/2 source sliders successfully!")
 
-# Generate some test data
-points = []
-for i in range(5):
-    x = random.uniform(-10, 10)
-    y = random.uniform(-10, 10)
-    points.append(rg.Point3d(x, y, 0))
-
-texts = [f"Item_{i}" for i in range(3)]
-
-A = points  # Point list output
-B = texts   # Text list output
-C = len(points)  # Count output
-"""
-        }
-        source_response = await self.send_command("create_python_component", source_python_payload)
-
-        success_count = sum([bool(slider_response), bool(slider2_response), bool(source_response)])
-        print(f"✅ Created {success_count}/3 source components successfully!")
-
-        return success_count >= 2  # At least 2 components needed for testing
+        return success_count >= 2  # Both sliders needed for testing
 
     async def verify_connections(self):
         """Verify that connections were actually created"""
@@ -302,20 +201,20 @@ C = len(points)  # Count output
 
         # Parse the pseudocode to look for connections
         pseudocode = response.get("data", "")
-        lines = pseudocode.split('\\n')
+        lines = pseudocode.split("\\n")
 
         # Look for function calls with parameters (indicating connections)
         connections_found = 0
         components_with_inputs = 0
 
         for line in lines:
-            if '=' in line and '(' in line and ')' in line:
+            if "=" in line and "(" in line and ")" in line:
                 # This looks like a component assignment with function call
-                if not line.strip().startswith('#'):
+                if not line.strip().startswith("#"):
                     components_with_inputs += 1
                     # Count parameters in function call
-                    if '(' in line and ')' in line:
-                        func_part = line.split('(')[1].split(')')[0]
+                    if "(" in line and ")" in line:
+                        func_part = line.split("(")[1].split(")")[0]
                         if func_part.strip():  # Has parameters
                             connections_found += 1
 
@@ -342,7 +241,7 @@ C = len(points)  # Count output
             print("✅ Canvas info retrieved successfully!")
             # Print a summary
             data = response.get("data", "")
-            lines = data.split('\\n')
+            lines = data.split("\\n")
             for line in lines:
                 if line.startswith("# Components:"):
                     print(f"📈 {line}")
@@ -367,7 +266,7 @@ C = len(points)  # Count output
                 "create_sources": await self.create_source_components(),
                 "python_component": await self.test_python_component(),
                 "canvas_info": await self.get_canvas_info(),
-                "verify_connections": await self.verify_connections()
+                "verify_connections": await self.verify_connections(),
             }
 
             # Summary
@@ -389,13 +288,21 @@ C = len(points)  # Count output
             connections_working = results.get("verify_connections", False)
 
             if passed == total:
-                print("🎉 All tests passed! Python component creation system working perfectly!")
+                print(
+                    "🎉 All tests passed! Python component creation system working perfectly!"
+                )
             elif python_working and connections_working:
-                print("🚀 Python component creation and connections working! System ready for use.")
+                print(
+                    "🚀 Python component creation and connections working! System ready for use."
+                )
             elif python_working:
-                print("⭐ Python component creation works! Connection system needs verification.")
+                print(
+                    "⭐ Python component creation works! Connection system needs verification."
+                )
             else:
-                print("⚠️ Python component creation failed - check Rhino version and plugin installation")
+                print(
+                    "⚠️ Python component creation failed - check Rhino version and plugin installation"
+                )
 
             print("\\n🔧 Method Status:")
             if python_working:
@@ -410,6 +317,7 @@ C = len(points)  # Count output
                 await self.ws.close()
                 print("\\n🔌 Disconnected from Grasshopper")
 
+
 async def main():
     """Main test runner"""
     tester = GrasshopperTester()
@@ -420,9 +328,10 @@ async def main():
     else:
         print("\\n🔧 Some tests failed - check the troubleshooting guide")
 
+
 if __name__ == "__main__":
-    print("Python Component Creation & Connection Tester")
+    print("🐍 Python Component Creation & Connection Tester")
     print("=" * 60)
-    print("Testing: Proven Method + Component Creation + Custom I/O + Connections")
+    print("🔧 Testing: Proven Method + Component Creation + Custom I/O + Connections")
     print("=" * 60)
     asyncio.run(main())
