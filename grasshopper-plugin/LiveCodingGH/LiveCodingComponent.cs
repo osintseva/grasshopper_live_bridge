@@ -186,6 +186,10 @@ namespace LiveCoding
                         CreatePythonXml(doc, payload, cmd.CorrelationId);
                         break;
 
+                    case "create_python_component":
+                        CreatePythonComponent(doc, payload, cmd.CorrelationId);
+                        break;
+
                     default:
                         AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Unknown action: {cmd.Action}");
                         SendErrorResponse(cmd.Action, cmd.CorrelationId, $"Unknown action: {cmd.Action}");
@@ -1244,6 +1248,349 @@ namespace LiveCoding
             });
 
             return component;
+        }
+
+        // ---------------------- Direct Python Component Creation (Standalone Method) ----------------------
+
+        private void CreatePythonComponent(GH_Document doc, IDictionary<string, object> payload, string correlationId)
+        {
+            try
+            {
+                var x = F(payload.TryGetValue("x", out var xv) ? xv : null, 20f);
+                var y = F(payload.TryGetValue("y", out var yv) ? yv : null, 20f);
+                var code = S(payload.TryGetValue("code", out var cv) ? cv : null,
+                    @"# Standalone Python Component
+import Rhino.Geometry as rg
+import math
+
+# Process first input (numbers)
+if first:
+    result_first = [x * 2 for x in first]
+else:
+    result_first = []
+
+# Process second input (points)
+if second:
+    result_second = [rg.Point3d(pt.X + 10, pt.Y + 10, pt.Z) for pt in second]
+else:
+    result_second = []
+
+# Generate output data
+output = f'Processed {len(result_first)} numbers and {len(result_second)} points'
+
+# Set outputs
+first_output = result_first
+second_output = result_second");
+
+                // Extract input/output specifications
+                var inputs = payload.TryGetValue("inputs", out var inputsObj) ?
+                    JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(inputsObj)) ??
+                    new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
+
+                var outputs = payload.TryGetValue("outputs", out var outputsObj) ?
+                    JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(outputsObj)) ??
+                    new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
+
+                var connections = payload.TryGetValue("connections", out var connectionsObj) ?
+                    JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(connectionsObj)) ??
+                    new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
+
+                LogDebug($"CreatePythonComponent: inputs={inputs.Count}, outputs={outputs.Count}, connections={connections.Count}");
+
+                // Create the component using the proven method
+                var pythonComponent = CreatePythonComponentAdvanced814(doc, x, y, code, inputs, outputs, connections);
+                if (pythonComponent != null)
+                {
+                    var message = $"Python component created successfully with {inputs.Count} inputs, {outputs.Count} outputs, {connections.Count} connections";
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, message);
+                    SendSuccessResponse("create_python_component", correlationId, message);
+                    return;
+                }
+
+                // Creation failed
+                var error = "Python Component Creation Failed: RhinoCode API not available. Ensure RhinoCode plugin is loaded.";
+                FallbackPanel(doc, x, y,
+                    "Python Component Creation Failed.\n" +
+                    "RhinoCode API not available.\n" +
+                    "Ensure RhinoCode plugin is loaded.");
+
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, error);
+                SendErrorResponse("create_python_component", correlationId, error);
+            }
+            catch (Exception ex)
+            {
+                var error = $"Failed to create Python component: {ex.Message}";
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, error);
+                LogDebug($"CreatePythonComponent exception: {ex}");
+                SendErrorResponse("create_python_component", correlationId, error);
+            }
+        }
+
+        private IGH_Component CreatePythonComponentAdvanced814(GH_Document doc, float x, float y, string code,
+            List<Dictionary<string, object>> inputs, List<Dictionary<string, object>> outputs,
+            List<Dictionary<string, object>> connections)
+        {
+            try
+            {
+                // Reference RhinoCodePluginGH.rhp and get required types
+                var pythonComponentType = Type.GetType("RhinoCodePluginGH.Components.Python3Component, RhinoCodePluginGH");
+                var scriptVariableParamType = Type.GetType("RhinoCodePluginGH.Parameters.ScriptVariableParam, RhinoCodePluginGH");
+
+                if (pythonComponentType == null)
+                {
+                    LogDebug("RhinoCodePluginGH.Components.Python3Component type not found - API not available");
+                    return null;
+                }
+
+                if (scriptVariableParamType == null)
+                {
+                    LogDebug("RhinoCodePluginGH.Parameters.ScriptVariableParam type not found - API not available");
+                    return null;
+                }
+
+                // Get all Create methods and find the right overload
+                var createMethods = pythonComponentType.GetMethods(BindingFlags.Public | BindingFlags.Static)
+                    .Where(m => m.Name == "Create")
+                    .ToArray();
+
+                object component = null;
+
+                // Try the (string nickname, string source) overload first
+                var stringStringMethod = createMethods.FirstOrDefault(m =>
+                {
+                    var ps = m.GetParameters();
+                    return ps.Length == 2 &&
+                           ps[0].ParameterType == typeof(string) &&
+                           ps[1].ParameterType == typeof(string);
+                });
+
+                if (stringStringMethod != null)
+                {
+                    component = stringStringMethod.Invoke(null, new object[] { "StandalonePython", code });
+                    LogDebug("Used Create(string, string) overload for standalone component");
+                }
+                else
+                {
+                    // Try (string nickname) overload and set source separately
+                    var singleStringMethod = createMethods.FirstOrDefault(m =>
+                    {
+                        var ps = m.GetParameters();
+                        return ps.Length == 1 && ps[0].ParameterType == typeof(string);
+                    });
+
+                    if (singleStringMethod != null)
+                    {
+                        component = singleStringMethod.Invoke(null, new object[] { "StandalonePython" });
+
+                        // Set source code
+                        var setSourceMethod = pythonComponentType.GetMethod("SetSource");
+                        setSourceMethod?.Invoke(component, new object[] { code });
+                        LogDebug("Used Create(string) overload with separate SetSource for standalone component");
+                    }
+                    else
+                    {
+                        // Try (string nickname, Bitmap icon, bool openEditor) overload
+                        var stringBitmapBoolMethod = createMethods.FirstOrDefault(m =>
+                        {
+                            var ps = m.GetParameters();
+                            return ps.Length == 3 &&
+                                   ps[0].ParameterType == typeof(string) &&
+                                   ps[1].ParameterType == typeof(Bitmap) &&
+                                   ps[2].ParameterType == typeof(bool);
+                        });
+
+                        if (stringBitmapBoolMethod != null)
+                        {
+                            using (var bmp = new Bitmap(16, 16))
+                            {
+                                component = stringBitmapBoolMethod.Invoke(null, new object[] { "StandalonePython", bmp, false });
+
+                                // Set source code after creation
+                                if (component != null)
+                                {
+                                    var setSourceMethod = pythonComponentType.GetMethod("SetSource");
+                                    setSourceMethod?.Invoke(component, new object[] { code });
+                                }
+                            }
+                            LogDebug("Used Create(string, Bitmap, bool) overload for standalone component");
+                        }
+                    }
+                }
+
+                if (component == null)
+                {
+                    LogDebug("Failed to create Python3Component instance using any overload");
+                    return null;
+                }
+
+                var ghComponent = component as IGH_Component;
+                if (ghComponent == null)
+                {
+                    LogDebug("Created component is not IGH_Component");
+                    return null;
+                }
+
+                LogDebug($"Successfully created Python3Component, adding {inputs.Count} inputs and {outputs.Count} outputs");
+
+                // Add custom input parameters using the ScriptVariableParam approach
+                foreach (var inputSpec in inputs)
+                {
+                    var name = S(inputSpec.TryGetValue("name", out var nameObj) ? nameObj : null, "input");
+                    var nickname = S(inputSpec.TryGetValue("nickname", out var nickObj) ? nickObj : null, name);
+                    var optional = inputSpec.TryGetValue("optional", out var optObj) && optObj is bool opt ? opt : true;
+                    var access = S(inputSpec.TryGetValue("access", out var accessObj) ? accessObj : null, "item");
+
+                    // Create ScriptVariableParam
+                    var inputParam = Activator.CreateInstance(scriptVariableParamType, new object[] { name });
+                    if (inputParam != null)
+                    {
+                        // Set properties
+                        var prettyNameProp = scriptVariableParamType.GetProperty("PrettyName");
+                        prettyNameProp?.SetValue(inputParam, nickname);
+
+                        var toolTipProp = scriptVariableParamType.GetProperty("ToolTip");
+                        toolTipProp?.SetValue(inputParam, $"Input parameter: {nickname}");
+
+                        var optionalProp = scriptVariableParamType.GetProperty("Optional");
+                        optionalProp?.SetValue(inputParam, optional);
+
+                        var accessProp = scriptVariableParamType.GetProperty("Access");
+                        if (accessProp != null)
+                        {
+                            GH_ParamAccess accessValue = GH_ParamAccess.item;
+                            var accessLower = access.ToLower();
+                            if (accessLower == "list")
+                                accessValue = GH_ParamAccess.list;
+                            else if (accessLower == "tree")
+                                accessValue = GH_ParamAccess.tree;
+
+                            accessProp.SetValue(inputParam, accessValue);
+                        }
+
+                        var allowTreeAccessProp = scriptVariableParamType.GetProperty("AllowTreeAccess");
+                        allowTreeAccessProp?.SetValue(inputParam, true);
+
+                        // Set type hints if specified
+                        if (inputSpec.TryGetValue("typeHint", out var typeHintObj))
+                        {
+                            var typeHint = S(typeHintObj);
+                            var typeHintsProp = scriptVariableParamType.GetProperty("TypeHints");
+                            var typeHints = typeHintsProp?.GetValue(inputParam);
+                            if (typeHints != null)
+                            {
+                                // Try different type hint methods
+                                if (typeHint == "double" || typeHint == "number")
+                                {
+                                    var selectMethod = typeHints.GetType().GetMethod("Select", new Type[] { typeof(Type) });
+                                    selectMethod?.Invoke(typeHints, new object[] { typeof(double) });
+                                }
+                                else
+                                {
+                                    var selectMethod = typeHints.GetType().GetMethod("Select", new Type[] { typeof(string) });
+                                    selectMethod?.Invoke(typeHints, new object[] { typeHint });
+                                }
+                            }
+                        }
+
+                        // CreateAttributes and register
+                        var createAttribMethod = inputParam.GetType().GetMethod("CreateAttributes");
+                        createAttribMethod?.Invoke(inputParam, null);
+
+                        var registerInputMethod = ghComponent.Params.GetType().GetMethod("RegisterInputParam", new Type[] { typeof(IGH_Param) });
+                        registerInputMethod?.Invoke(ghComponent.Params, new object[] { inputParam });
+
+                        LogDebug($"Added input parameter: {name} ({nickname})");
+                    }
+                }
+
+                // Add custom output parameters
+                foreach (var outputSpec in outputs)
+                {
+                    var name = S(outputSpec.TryGetValue("name", out var nameObj) ? nameObj : null, "output");
+                    var nickname = S(outputSpec.TryGetValue("nickname", out var nickObj) ? nickObj : null, name);
+                    var hidden = outputSpec.TryGetValue("hidden", out var hiddenObj) && hiddenObj is bool h ? h : false;
+
+                    var outputParam = Activator.CreateInstance(scriptVariableParamType, new object[] { name });
+                    if (outputParam != null)
+                    {
+                        var prettyNameProp = scriptVariableParamType.GetProperty("PrettyName");
+                        prettyNameProp?.SetValue(outputParam, nickname);
+
+                        if (hidden)
+                        {
+                            var hiddenProp = scriptVariableParamType.GetProperty("Hidden");
+                            hiddenProp?.SetValue(outputParam, true);
+                        }
+
+                        var createAttribMethod = outputParam.GetType().GetMethod("CreateAttributes");
+                        createAttribMethod?.Invoke(outputParam, null);
+
+                        var registerOutputMethod = ghComponent.Params.GetType().GetMethod("RegisterOutputParam", new Type[] { typeof(IGH_Param) });
+                        registerOutputMethod?.Invoke(ghComponent.Params, new object[] { outputParam });
+
+                        LogDebug($"Added output parameter: {name} ({nickname})");
+                    }
+                }
+
+                // Call VariableParameterMaintenance
+                var maintenanceMethod = pythonComponentType.GetMethod("VariableParameterMaintenance");
+                if (maintenanceMethod != null)
+                {
+                    maintenanceMethod.Invoke(component, null);
+                    LogDebug("Called VariableParameterMaintenance for standalone component");
+                }
+                else
+                {
+                    LogDebug("VariableParameterMaintenance method not found");
+                }
+
+                // Set special parameters
+                var usingStandardOutputProp = pythonComponentType.GetProperty("UsingStandardOutputParam");
+                usingStandardOutputProp?.SetValue(component, true);
+
+                var graftStandardOutputProp = pythonComponentType.GetProperty("GraftStandardOutputLines");
+                graftStandardOutputProp?.SetValue(component, true);
+
+                var marshGuidsProp = pythonComponentType.GetProperty("MarshGuids");
+                marshGuidsProp?.SetValue(component, false);
+
+                // Position component and add to document
+                ghComponent.CreateAttributes();
+                ghComponent.Attributes.Pivot = new PointF(x, y);
+
+                // Add to document safely
+                try
+                {
+                    doc.AddObject(ghComponent, true);
+
+                    // Schedule a solution to update the component
+                    doc.ScheduleSolution(10, _ => {
+                        try
+                        {
+                            MakeConnections(doc, ghComponent, connections);
+                            ghComponent.ExpireSolution(true);
+                            LogDebug("Connections and solution update completed for standalone component");
+                        }
+                        catch (Exception ex)
+                        {
+                            LogDebug($"Connection failed for standalone component: {ex.Message}");
+                        }
+                    });
+                }
+                catch (Exception ex)
+                {
+                    LogDebug($"Error adding standalone component to document: {ex.Message}");
+                    return null;
+                }
+
+                LogDebug("Standalone component added to document successfully");
+                return ghComponent;
+            }
+            catch (Exception ex)
+            {
+                LogDebug($"CreatePythonComponentAdvanced814 failed: {ex.Message}");
+                return null;
+            }
         }
 
         private void AddCustomParameters(IGH_Component component, List<Dictionary<string, object>> inputs, List<Dictionary<string, object>> outputs)

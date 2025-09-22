@@ -2,12 +2,13 @@
 """
 🐍 Test Script for Rhino 8 Python Component Creation with Connections
 
-This comprehensive script tests all three methods for programmatically creating Python components
+This comprehensive script tests all four methods for programmatically creating Python components
 in Grasshopper for Rhino 8, including custom inputs/outputs and automatic connections:
 
 1. create_python_script - Original basic method (existing functionality)
 2. create_python_advanced - Using official Python3Component.Create API (Rhino 8.14+) with custom parameters
 3. create_python_xml - Using XML serialization workaround (fallback) with custom parameters
+4. create_python_component - Standalone method using proven CreatePythonScriptComponent approach
 
 🔧 Features Tested:
 - ✅ Component creation with custom inputs/outputs
@@ -402,6 +403,154 @@ stats = {
             print(f"❌ XML Python creation failed: {response}")
             return False
 
+    async def test_standalone_python(self):
+        """Test create_python_component endpoint (standalone method)"""
+        print("\\n🎯 Testing Standalone Python Component Creation (Proven Method)...")
+
+        payload = {
+            "x": 200,
+            "y": 300,
+            "code": """# Standalone Python Component (Proven Method)
+import Rhino.Geometry as rg
+import System
+import random
+
+# Process radius input
+base_radius = 2.0
+if 'radius_input' in locals() and radius_input is not None:
+    base_radius = max(0.1, float(radius_input))
+
+# Process count input
+item_count = 6
+if 'count_input' in locals() and count_input is not None:
+    item_count = max(3, int(count_input))
+
+# Process data list input
+input_data = []
+if 'data_list' in locals() and data_list:
+    input_data = list(data_list)
+
+# Generate concentric circles with varying properties
+circles = []
+radii = []
+for i in range(3):
+    radius = base_radius * (1 + i * 0.7)
+    circle = rg.Circle(rg.Point3d.Origin, radius)
+    circles.append(circle.ToNurbsCurve())
+    radii.append(radius)
+
+# Generate polygon based on count
+polygon_points = []
+for i in range(item_count):
+    angle = (2 * rg.Math.PI * i) / item_count
+    x = base_radius * 2 * rg.Math.Cos(angle)
+    y = base_radius * 2 * rg.Math.Sin(angle)
+    polygon_points.append(rg.Point3d(x, y, 0))
+
+# Add random variation if we have input data
+if input_data:
+    varied_points = []
+    for i, pt in enumerate(polygon_points):
+        if i < len(input_data):
+            # Use input data to modify points
+            offset = float(str(input_data[i])[:3] if str(input_data[i]) else "0.5")
+        else:
+            offset = random.uniform(0.5, 1.5)
+
+        new_pt = rg.Point3d(pt.X * offset, pt.Y * offset, pt.Z)
+        varied_points.append(new_pt)
+
+    modified_polygon = varied_points
+else:
+    modified_polygon = polygon_points
+
+# Create analysis report
+process_info = f"Standalone: {len(circles)} circles (radii: {[f'{r:.2f}' for r in radii]}), {len(polygon_points)} polygon points"
+data_analysis = f"Input data: {len(input_data)} items processed" if input_data else "No input data processed"
+
+# Set outputs
+output_circles = circles
+output_points = polygon_points
+modified_points = modified_polygon
+component_report = process_info
+data_report = data_analysis
+execution_timestamp = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
+""",
+            "inputs": [
+                {
+                    "name": "radius_input",
+                    "nickname": "Radius",
+                    "optional": True,
+                    "access": "item",
+                    "typeHint": "double"
+                },
+                {
+                    "name": "count_input",
+                    "nickname": "Count",
+                    "optional": True,
+                    "access": "item",
+                    "typeHint": "number"
+                },
+                {
+                    "name": "data_list",
+                    "nickname": "Data",
+                    "optional": True,
+                    "access": "list"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "output_circles",
+                    "nickname": "Circles"
+                },
+                {
+                    "name": "output_points",
+                    "nickname": "Points"
+                },
+                {
+                    "name": "modified_points",
+                    "nickname": "Modified"
+                },
+                {
+                    "name": "component_report",
+                    "nickname": "Report"
+                },
+                {
+                    "name": "data_report",
+                    "nickname": "Data Info"
+                },
+                {
+                    "name": "execution_timestamp",
+                    "nickname": "Time"
+                }
+            ],
+            "connections": [
+                {
+                    "sourceId": "NumSlider",
+                    "sourceOutput": 0,
+                    "targetInput": 0
+                },
+                {
+                    "sourceId": "CountSlider",
+                    "sourceOutput": 0,
+                    "targetInput": 1
+                },
+                {
+                    "sourceId": "Python Script",  # The source Python component
+                    "sourceOutput": 2,  # Count output (C)
+                    "targetInput": 2
+                }
+            ]
+        }
+
+        response = await self.send_command("create_python_component", payload)
+        if response and response.get("status") == "success":
+            print("✅ Standalone Python component created successfully!")
+            return True
+        else:
+            print(f"❌ Standalone Python creation failed: {response}")
+            return False
+
     async def create_source_components(self):
         """Create multiple source components for testing connections"""
         print("\n🔧 Creating source components for connections...")
@@ -528,6 +677,7 @@ C = len(points)  # Count output
                 "basic_python": await self.test_basic_python(),
                 "advanced_python": await self.test_advanced_python(),
                 "xml_python": await self.test_xml_python(),
+                "standalone_python": await self.test_standalone_python(),
                 "canvas_info": await self.get_canvas_info(),
                 "verify_connections": await self.verify_connections()
             }
@@ -547,11 +697,11 @@ C = len(points)  # Count output
             print(f"\n🎯 Total: {passed}/{total} tests passed")
 
             # Analyze Python creation results
-            python_methods = ["basic_python", "advanced_python", "xml_python"]
+            python_methods = ["basic_python", "advanced_python", "xml_python", "standalone_python"]
             python_passed = sum(1 for method in python_methods if results.get(method, False))
             connections_working = results.get("verify_connections", False)
 
-            print(f"\n🐍 Python Creation Summary: {python_passed}/3 methods working")
+            print(f"\n🐍 Python Creation Summary: {python_passed}/4 methods working")
             if connections_working:
                 print("🔗 Component connections: ✅ Working")
             else:
@@ -559,17 +709,23 @@ C = len(points)  # Count output
 
             if passed == total:
                 print("🎉 All tests passed! Complete Python component creation system working with connections!")
-            elif python_passed == 3 and connections_working:
+            elif python_passed == 4 and connections_working:
                 print("🚀 All Python creation methods work with connections! You have full Rhino 8 compatibility.")
-            elif python_passed == 3:
+            elif python_passed == 4:
                 print("⭐ All Python creation methods work! Connection system needs verification.")
-            elif results["advanced_python"] and results["xml_python"]:
+            elif python_passed >= 3:
+                print("🌟 Most Python creation methods work - excellent compatibility!")
+            elif results.get("standalone_python") and results.get("advanced_python"):
+                print("✨ Standalone & Advanced methods work - proven approach available!")
+            elif results.get("standalone_python"):
+                print("🎯 Standalone method works - using proven CreatePythonScriptComponent approach!")
+            elif results.get("advanced_python") and results.get("xml_python"):
                 print("✨ Advanced & XML methods work - excellent Rhino 8 compatibility!")
-            elif results["advanced_python"]:
+            elif results.get("advanced_python"):
                 print("🆕 Advanced method works - you have Rhino 8.14+ API available!")
-            elif results["xml_python"]:
+            elif results.get("xml_python"):
                 print("⚙️ XML method works - using fallback approach for older Rhino 8")
-            elif results["basic_python"]:
+            elif results.get("basic_python"):
                 print("🔧 Basic method works - original functionality available")
             else:
                 print("⚠️ All Python creation methods failed - check Rhino version and plugin installation")
@@ -594,6 +750,6 @@ async def main():
 if __name__ == "__main__":
     print("🐍 Rhino 8 Python Component Creation & Connection Tester")
     print("=" * 60)
-    print("🔧 Testing: Component Creation + Custom I/O + Connections")
+    print("🔧 Testing: 4 Methods + Component Creation + Custom I/O + Connections")
     print("=" * 60)
     asyncio.run(main())
