@@ -74,11 +74,11 @@ The test suite validates:
 ## Architecture
 
 ```
-Claude Code ←→ MCP Server ←→ WebSocket ←→ Grasshopper Component
-              (mcp-server/)              (grasshopper-plugin/)
-                    ↕️
-           Testing Scripts
-             (scripts/)
+Claude Code ←→ MCP Server   ←→ WebSocket  ←→ Grasshopper Component
+              (mcp-server/)                  (grasshopper-plugin/)
+                                  ↕️
+                            Testing Scripts
+                              (scripts/)
 ```
 
 ## Use Cases 🎯
