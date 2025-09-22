@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
 """
-🐍 Test Script for Rhino 8 Python Component Creation with Connections
+🐍 Python Component Creation Test Script for Rhino 8
 
-This comprehensive script tests all three methods for programmatically creating Python components
+This script tests the Python component creation method for programmatically creating Python components
 in Grasshopper for Rhino 8, including custom inputs/outputs and automatic connections:
 
-1. create_python_script - Original basic method (existing functionality)
-2. create_python_advanced - Using official Python3Component.Create API (Rhino 8.14+) with custom parameters
-3. create_python_xml - Using XML serialization workaround (fallback) with custom parameters
+• create_python_component - Proven method using RhinoCodePluginGH.Components.Python3Component API with ScriptVariableParam
 
 🔧 Features Tested:
-- ✅ Component creation with custom inputs/outputs
+- ✅ Python component creation with custom inputs/outputs using ScriptVariableParam
 - ✅ Automatic source component generation (sliders, data sources)
 - ✅ Component-to-component connections
 - ✅ Connection verification through canvas analysis
-- ✅ Cross-method compatibility testing
+- ✅ Robust method overload handling and error recovery
 
 Prerequisites:
 - Grasshopper must be running with LiveCodingComponent loaded
@@ -30,6 +28,7 @@ import uuid
 # Configuration
 GRASSHOPPER_WS_URL = "ws://localhost:8181/live"
 TIMEOUT = 10.0
+
 
 class GrasshopperTester:
     def __init__(self):
@@ -59,7 +58,7 @@ class GrasshopperTester:
         message = {
             "action": action,
             "correlationId": correlation_id,
-            "payload": payload or {}
+            "payload": payload or {},
         }
 
         print(f"📤 Sending: {action}")
@@ -87,7 +86,7 @@ class GrasshopperTester:
 
     async def test_ping(self):
         """Test basic connectivity"""
-        print("\n🏓 Testing ping...")
+        print("\\n🏓 Testing ping...")
         response = await self.send_command("ping")
         if response:
             print("✅ Ping successful!")
@@ -96,364 +95,104 @@ class GrasshopperTester:
             print("❌ Ping failed!")
             return False
 
-    async def test_advanced_python(self):
-        """Test create_python_advanced endpoint"""
-        print("\n🚀 Testing Advanced Python Component Creation (Rhino 8.14+ API)...")
+    async def test_python_component(self):
+        """Test create_python_component endpoint (proven method)"""
+        print("\\n🎯 Testing Python Component Creation (Proven Method)...")
 
         payload = {
-            "x": 300,
-            "y": 100,
-            "code": """# Advanced Python Test Component
+            "x": 200,
+            "y": 300,
+            "code": """# Simple Python Component with Geometry
 import Rhino.Geometry as rg
 import System
-import math
 
-# Process numerical input
-processed_numbers = []
-if 'radius' in locals() and radius is not None:
-    base_radius = float(radius)
-    # Create multiple circles with varying radii
-    for i in range(5):
-        r = base_radius * (i + 1) * 0.5
-        processed_numbers.append(r)
+# Get inputs with defaults
+radius = 5.0
+if 'radius_input' in locals() and radius_input is not None:
+    radius = max(0.1, float(radius_input))
+
+count = 6
+if 'count_input' in locals() and count_input is not None:
+    count = max(3, int(count_input))
+
+# Create a circle
+circle = rg.Circle(rg.Point3d.Origin, radius)
+
+# Create polygon points
+points = []
+for i in range(count):
+    angle = (2 * System.Math.PI * i) / count
+    x = radius * System.Math.Cos(angle)
+    y = radius * System.Math.Sin(angle)
+    points.append(rg.Point3d(x, y, 0))
+
+# Create polyline from points
+if len(points) > 2:
+    points.append(points[0])  # Close the polyline
+    polyline = rg.Polyline(points)
 else:
-    processed_numbers = [1.0, 2.0, 3.0]
-
-# Process count input
-num_points = 8
-if 'point_count' in locals() and point_count is not None:
-    num_points = max(3, int(point_count))
-
-# Process point data if available
-transformed_points = []
-if 'input_points' in locals() and input_points:
-    for pt in input_points:
-        if hasattr(pt, 'X'):  # Check if it's a Point3d
-            # Transform points by scaling
-            new_pt = rg.Point3d(pt.X * 1.5, pt.Y * 1.5, pt.Z)
-            transformed_points.append(new_pt)
-
-# Generate output geometry
-circles = []
-for r in processed_numbers[:3]:  # Limit to 3 circles
-    circle = rg.Circle(rg.Point3d.Origin, r)
-    circles.append(circle.ToNurbsCurve())
-
-# Create polygon based on point count
-polygon_points = []
-for i in range(num_points):
-    angle = (2 * math.pi * i) / num_points
-    x = 5.0 * math.cos(angle)
-    y = 5.0 * math.sin(angle)
-    polygon_points.append(rg.Point3d(x, y, 0))
+    polyline = None
 
 # Set outputs
-output_circles = circles
-output_points = polygon_points
-transformed_inputs = transformed_points
-status_report = f"Advanced Python: {len(circles)} circles, {len(polygon_points)} polygon points, {len(transformed_points)} transformed points"
-execution_time = System.DateTime.Now.ToString()
+circles = circle.ToNurbsCurve()
+polygon = polyline.ToNurbsCurve() if polyline else None
+vertices = points[:-1] if len(points) > 1 else points  # Remove duplicate closing point
 """,
             "inputs": [
                 {
-                    "name": "radius",
+                    "name": "radius_input",
                     "nickname": "R",
                     "optional": True,
-                    "access": "item"
+                    "access": "item",
+                    "typeHint": "double",
                 },
                 {
-                    "name": "point_count",
+                    "name": "count_input",
                     "nickname": "N",
                     "optional": True,
-                    "access": "item"
+                    "access": "item",
+                    "typeHint": "number",
                 },
-                {
-                    "name": "input_points",
-                    "nickname": "Pts",
-                    "optional": True,
-                    "access": "list"
-                }
             ],
             "outputs": [
-                {
-                    "name": "output_circles",
-                    "nickname": "Circles"
-                },
-                {
-                    "name": "output_points",
-                    "nickname": "Points"
-                },
-                {
-                    "name": "transformed_inputs",
-                    "nickname": "XPts"
-                },
-                {
-                    "name": "status_report",
-                    "nickname": "Status"
-                },
-                {
-                    "name": "execution_time",
-                    "nickname": "Time"
-                }
+                {"name": "circles", "nickname": "C"},
+                {"name": "polygon", "nickname": "P"},
+                {"name": "vertices", "nickname": "V"},
             ],
             "connections": [
-                # Connect to the created source components
-                {
-                    "sourceId": "NumSlider",
-                    "sourceOutput": 0,
-                    "targetInput": 0
-                },
-                {
-                    "sourceId": "CountSlider",
-                    "sourceOutput": 0,
-                    "targetInput": 1
-                },
-                {
-                    "sourceId": "Python Script",  # The source Python component
-                    "sourceOutput": 0,  # Points output (A)
-                    "targetInput": 2
-                }
-            ]
-        }
-
-        response = await self.send_command("create_python_advanced", payload)
-        if response and response.get("status") == "success":
-            print("✅ Advanced Python component created successfully!")
-            return True
-        else:
-            print(f"❌ Advanced Python creation failed: {response}")
-            return False
-
-    async def test_basic_python(self):
-        """Test create_python_script endpoint (existing basic method)"""
-        print("\n🐙 Testing Basic Python Script Creation (Original Method)...")
-
-        payload = {
-            "x": 500,
-            "y": 100,
-            "code": """# Basic Python Script Component with Inputs
-import Rhino.Geometry as rg
-import datetime
-
-# Access inputs (x and y should be available as default inputs)
-num_value = x if 'x' in locals() and x is not None else 5.0
-count_value = y if 'y' in locals() and y is not None else 10
-
-# Process data
-current_time = datetime.datetime.now()
-message = f"Basic Python at {current_time.strftime('%H:%M:%S')} with inputs: num={num_value}, count={count_value}"
-
-# Create geometry based on inputs
-points = []
-for i in range(int(count_value)):
-    angle = (2 * 3.14159 * i) / count_value
-    x_coord = float(num_value) * rg.Math.Cos(angle)
-    y_coord = float(num_value) * rg.Math.Sin(angle)
-    points.append(rg.Point3d(x_coord, y_coord, 0))
-
-# Output variables (standard naming for basic components)
-A = message
-B = points
-C = f"Created {len(points)} points with radius {num_value}"
-"""
-        }
-
-        response = await self.send_command("create_python_script", payload)
-        if response:
-            print("✅ Basic Python script component created successfully!")
-            # Note: Basic method doesn't support connection specification in payload
-            # Connections would need to be made manually or via separate endpoint
-            return True
-        else:
-            print(f"❌ Basic Python creation failed: {response}")
-            return False
-
-    async def test_xml_python(self):
-        """Test create_python_xml endpoint"""
-        print("\n📋 Testing XML-based Python Component Creation...")
-
-        payload = {
-            "x": 500,
-            "y": 200,
-            "code": """# XML-based Python Test Component
-import Rhino.Geometry as rg
-import math
-
-# Process numerical inputs
-scale_factor = 1.0
-if 'scale' in locals() and scale is not None:
-    scale_factor = max(0.1, float(scale))
-
-sides = 6
-if 'polygon_sides' in locals() and polygon_sides is not None:
-    sides = max(3, int(polygon_sides))
-
-# Process text inputs
-text_items = []
-if 'text_data' in locals() and text_data:
-    if isinstance(text_data, list):
-        text_items = text_data
-    else:
-        text_items = [str(text_data)]
-
-# Generate geometry
-# Create regular polygon
-polygon_points = []
-radius = 5.0 * scale_factor
-for i in range(sides):
-    angle = (2 * math.pi * i) / sides
-    x = radius * math.cos(angle)
-    y = radius * math.sin(angle)
-    polygon_points.append(rg.Point3d(x, y, 0))
-
-# Close the polygon
-if len(polygon_points) > 2:
-    polygon_points.append(polygon_points[0])
-    polyline = rg.Polyline(polygon_points)
-    polygon_curve = polyline.ToNurbsCurve()
-else:
-    polygon_curve = None
-
-# Create concentric circles
-circles = []
-for i in range(3):
-    r = radius * (0.3 + i * 0.35)
-    circle = rg.Circle(rg.Point3d.Origin, r)
-    circles.append(circle.ToNurbsCurve())
-
-# Create text analysis
-text_analysis = f"Processed {len(text_items)} text items: {', '.join(text_items[:3])}"
-if len(text_items) > 3:
-    text_analysis += f" (and {len(text_items)-3} more)"
-
-# Set outputs
-geometry_points = polygon_points[:-1]  # Exclude duplicate closing point
-geometry_curves = [polygon_curve] + circles if polygon_curve else circles
-text_report = text_analysis
-component_info = f"XML Python: {sides}-sided polygon, scale {scale_factor:.2f}, {len(circles)} circles"
-stats = {
-    'points': len(geometry_points),
-    'curves': len(geometry_curves),
-    'scale': scale_factor,
-    'sides': sides
-}
-""",
-            "inputs": [
-                {
-                    "name": "scale",
-                    "nickname": "Scale"
-                },
-                {
-                    "name": "polygon_sides",
-                    "nickname": "Sides"
-                },
-                {
-                    "name": "text_data",
-                    "nickname": "Text"
-                }
+                {"sourceId": "NumSlider", "sourceOutput": 0, "targetInput": 0},
+                {"sourceId": "CountSlider", "sourceOutput": 0, "targetInput": 1},
             ],
-            "outputs": [
-                {
-                    "name": "geometry_points",
-                    "nickname": "Points"
-                },
-                {
-                    "name": "geometry_curves",
-                    "nickname": "Curves"
-                },
-                {
-                    "name": "text_report",
-                    "nickname": "Report"
-                },
-                {
-                    "name": "component_info",
-                    "nickname": "Info"
-                },
-                {
-                    "name": "stats",
-                    "nickname": "Stats"
-                }
-            ],
-            "connections": [
-                # Connect to the created source components
-                {
-                    "sourceId": "NumSlider",
-                    "sourceOutput": 0,
-                    "targetInput": 0
-                },
-                {
-                    "sourceId": "CountSlider",
-                    "sourceOutput": 0,
-                    "targetInput": 1
-                },
-                {
-                    "sourceId": "Python Script",  # The source Python component
-                    "sourceOutput": 1,  # Text output (B)
-                    "targetInput": 2
-                }
-            ]
         }
 
-        response = await self.send_command("create_python_xml", payload)
+        response = await self.send_command("create_python_component", payload)
         if response and response.get("status") == "success":
-            print("✅ XML-based Python component created successfully!")
+            print("✅ Python component created successfully!")
             return True
         else:
-            print(f"❌ XML Python creation failed: {response}")
+            print(f"❌ Python creation failed: {response}")
             return False
 
     async def create_source_components(self):
-        """Create multiple source components for testing connections"""
-        print("\n🔧 Creating source components for connections...")
+        """Create source sliders for testing connections"""
+        print("\\n🔧 Creating source sliders for connections...")
 
-        # Create number slider
-        slider_payload = {
-            "x": 50,
-            "y": 100,
-            "nickname": "NumSlider"
-        }
+        # Create number slider for radius
+        slider_payload = {"x": 50, "y": 100, "nickname": "NumSlider"}
         slider_response = await self.send_command("create_slider", slider_payload)
 
-        # Create another number slider
-        slider2_payload = {
-            "x": 50,
-            "y": 200,
-            "nickname": "CountSlider"
-        }
+        # Create number slider for count
+        slider2_payload = {"x": 50, "y": 200, "nickname": "CountSlider"}
         slider2_response = await self.send_command("create_slider", slider2_payload)
 
-        # Create a basic Python component as data source
-        source_python_payload = {
-            "x": 50,
-            "y": 300,
-            "code": """# Source Component
-import Rhino.Geometry as rg
-import random
+        success_count = sum([bool(slider_response), bool(slider2_response)])
+        print(f"✅ Created {success_count}/2 source sliders successfully!")
 
-# Generate some test data
-points = []
-for i in range(5):
-    x = random.uniform(-10, 10)
-    y = random.uniform(-10, 10)
-    points.append(rg.Point3d(x, y, 0))
-
-texts = [f"Item_{i}" for i in range(3)]
-
-A = points  # Point list output
-B = texts   # Text list output
-C = len(points)  # Count output
-"""
-        }
-        source_response = await self.send_command("create_python_script", source_python_payload)
-
-        success_count = sum([bool(slider_response), bool(slider2_response), bool(source_response)])
-        print(f"✅ Created {success_count}/3 source components successfully!")
-
-        return success_count >= 2  # At least 2 components needed for testing
+        return success_count >= 2  # Both sliders needed for testing
 
     async def verify_connections(self):
         """Verify that connections were actually created"""
-        print("\n🔗 Verifying component connections...")
+        print("\\n🔗 Verifying component connections...")
 
         response = await self.send_command("get_canvas_info")
         if not response or response.get("status") != "success":
@@ -462,20 +201,20 @@ C = len(points)  # Count output
 
         # Parse the pseudocode to look for connections
         pseudocode = response.get("data", "")
-        lines = pseudocode.split('\n')
+        lines = pseudocode.split("\\n")
 
         # Look for function calls with parameters (indicating connections)
         connections_found = 0
         components_with_inputs = 0
 
         for line in lines:
-            if '=' in line and '(' in line and ')' in line:
+            if "=" in line and "(" in line and ")" in line:
                 # This looks like a component assignment with function call
-                if not line.strip().startswith('#'):
+                if not line.strip().startswith("#"):
                     components_with_inputs += 1
                     # Count parameters in function call
-                    if '(' in line and ')' in line:
-                        func_part = line.split('(')[1].split(')')[0]
+                    if "(" in line and ")" in line:
+                        func_part = line.split("(")[1].split(")")[0]
                         if func_part.strip():  # Has parameters
                             connections_found += 1
 
@@ -495,14 +234,14 @@ C = len(points)  # Count output
 
     async def get_canvas_info(self):
         """Get current canvas information"""
-        print("\n📊 Getting canvas information...")
+        print("\\n📊 Getting canvas information...")
 
         response = await self.send_command("get_canvas_info")
         if response and response.get("status") == "success":
             print("✅ Canvas info retrieved successfully!")
             # Print a summary
             data = response.get("data", "")
-            lines = data.split('\n')
+            lines = data.split("\\n")
             for line in lines:
                 if line.startswith("# Components:"):
                     print(f"📈 {line}")
@@ -514,7 +253,7 @@ C = len(points)  # Count output
 
     async def run_all_tests(self):
         """Run complete test suite"""
-        print("🧪 Starting Rhino 8 Python Component Creation Tests")
+        print("🧪 Starting Python Component Creation Test")
         print("=" * 60)
 
         # Connect to Grasshopper
@@ -525,15 +264,13 @@ C = len(points)  # Count output
             results = {
                 "ping": await self.test_ping(),
                 "create_sources": await self.create_source_components(),
-                "basic_python": await self.test_basic_python(),
-                "advanced_python": await self.test_advanced_python(),
-                "xml_python": await self.test_xml_python(),
+                "python_component": await self.test_python_component(),
                 "canvas_info": await self.get_canvas_info(),
-                "verify_connections": await self.verify_connections()
+                "verify_connections": await self.verify_connections(),
             }
 
             # Summary
-            print("\n📋 Test Results Summary:")
+            print("\\n📋 Test Results Summary:")
             print("=" * 30)
             passed = 0
             total = len(results)
@@ -544,42 +281,42 @@ C = len(points)  # Count output
                 if result:
                     passed += 1
 
-            print(f"\n🎯 Total: {passed}/{total} tests passed")
+            print(f"\\n🎯 Total: {passed}/{total} tests passed")
 
-            # Analyze Python creation results
-            python_methods = ["basic_python", "advanced_python", "xml_python"]
-            python_passed = sum(1 for method in python_methods if results.get(method, False))
+            # Analyze results
+            python_working = results.get("python_component", False)
             connections_working = results.get("verify_connections", False)
 
-            print(f"\n🐍 Python Creation Summary: {python_passed}/3 methods working")
-            if connections_working:
-                print("🔗 Component connections: ✅ Working")
-            else:
-                print("🔗 Component connections: ⚠️ Issues detected")
-
             if passed == total:
-                print("🎉 All tests passed! Complete Python component creation system working with connections!")
-            elif python_passed == 3 and connections_working:
-                print("🚀 All Python creation methods work with connections! You have full Rhino 8 compatibility.")
-            elif python_passed == 3:
-                print("⭐ All Python creation methods work! Connection system needs verification.")
-            elif results["advanced_python"] and results["xml_python"]:
-                print("✨ Advanced & XML methods work - excellent Rhino 8 compatibility!")
-            elif results["advanced_python"]:
-                print("🆕 Advanced method works - you have Rhino 8.14+ API available!")
-            elif results["xml_python"]:
-                print("⚙️ XML method works - using fallback approach for older Rhino 8")
-            elif results["basic_python"]:
-                print("🔧 Basic method works - original functionality available")
+                print(
+                    "🎉 All tests passed! Python component creation system working perfectly!"
+                )
+            elif python_working and connections_working:
+                print(
+                    "🚀 Python component creation and connections working! System ready for use."
+                )
+            elif python_working:
+                print(
+                    "⭐ Python component creation works! Connection system needs verification."
+                )
             else:
-                print("⚠️ All Python creation methods failed - check Rhino version and plugin installation")
+                print(
+                    "⚠️ Python component creation failed - check Rhino version and plugin installation"
+                )
+
+            print("\\n🔧 Method Status:")
+            if python_working:
+                print("✅ create_python_component - Working (ScriptVariableParam API)")
+            else:
+                print("❌ create_python_component - Failed")
 
             return passed == total
 
         finally:
             if self.ws:
                 await self.ws.close()
-                print("\n🔌 Disconnected from Grasshopper")
+                print("\\n🔌 Disconnected from Grasshopper")
+
 
 async def main():
     """Main test runner"""
@@ -587,13 +324,14 @@ async def main():
     success = await tester.run_all_tests()
 
     if success:
-        print("\n🚀 Ready to use programmatic Python component creation!")
+        print("\\n🚀 Ready to use Python component creation!")
     else:
-        print("\n🔧 Some tests failed - check the troubleshooting guide")
+        print("\\n🔧 Some tests failed - check the troubleshooting guide")
+
 
 if __name__ == "__main__":
-    print("🐍 Rhino 8 Python Component Creation & Connection Tester")
+    print("🐍 Python Component Creation & Connection Tester")
     print("=" * 60)
-    print("🔧 Testing: Component Creation + Custom I/O + Connections")
+    print("🔧 Testing: Proven Method + Component Creation + Custom I/O + Connections")
     print("=" * 60)
     asyncio.run(main())

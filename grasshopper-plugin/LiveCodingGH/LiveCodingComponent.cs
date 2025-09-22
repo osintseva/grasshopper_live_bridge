@@ -1,4 +1,3 @@
-// grasshopper_component/LiveCodingGH/LiveCodingComponent.cs
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -26,7 +25,7 @@ namespace LiveCoding
     /// Actions:
     ///   - ping
     ///   - create_slider                      { x?, y?, nickname? }
-    ///   - create_python_script               { x?, y?, code? }
+    ///   - create_python_component            { x?, y?, code?, inputs[], outputs[], connections[] }
     ///   - update_script                      { componentId, code }
     ///   - get_canvas_info                    (returns JSON of entire canvas definition)
     /// </summary>
@@ -64,7 +63,7 @@ namespace LiveCoding
             DebugLog.Add(logEntry);
 
             // Keep only last 20 entries
-            if (DebugLog.Count > 20)
+            if (DebugLog.Count > 2000)
                 DebugLog.RemoveAt(0);
         }
 
@@ -167,8 +166,8 @@ namespace LiveCoding
                         CreateSlider(doc, payload, cmd.CorrelationId);
                         break;
 
-                    case "create_python_script":
-                        CreatePythonScript(doc, payload, cmd.CorrelationId);
+                    case "create_python_component":
+                        CreatePythonComponent(doc, payload, cmd.CorrelationId);
                         break;
 
                     case "update_script":
@@ -177,14 +176,6 @@ namespace LiveCoding
 
                     case "get_canvas_info":
                         GetCanvasInfo(doc, cmd.CorrelationId);
-                        break;
-
-                    case "create_python_advanced":
-                        CreatePythonAdvanced(doc, payload, cmd.CorrelationId);
-                        break;
-
-                    case "create_python_xml":
-                        CreatePythonXml(doc, payload, cmd.CorrelationId);
                         break;
 
                     default:
@@ -759,150 +750,40 @@ namespace LiveCoding
             }
         }
 
-        // ---------------------- Create Python Script ----------------------
-        // Rhino 7 path: RhinoCodePluginGH.Components.Python3Component.Create(...)
-        // Overloads differ; we disambiguate by parameter types.
-        // Legacy fallback: GhPython.Component.ZuiPythonComponent with property "Code"/etc.
+        // ---------------------- Python Component Creation ----------------------
 
-        private void CreatePythonScript(GH_Document doc, IDictionary<string, object> payload, string correlationId)
+
+        // ---------------------- Direct Python Component Creation (Standalone Method) ----------------------
+
+        private void CreatePythonComponent(GH_Document doc, IDictionary<string, object> payload, string correlationId)
         {
             try
             {
-                var x = F(payload.TryGetValue("x", out var xv) ? xv : null, 260f);
-                var y = F(payload.TryGetValue("y", out var yv) ? yv : null, 160f);
+                var x = F(payload.TryGetValue("x", out var xv) ? xv : null, 20f);
+                var y = F(payload.TryGetValue("y", out var yv) ? yv : null, 20f);
                 var code = S(payload.TryGetValue("code", out var cv) ? cv : null,
-                    "import datetime as _dt\nA = 'Py ready @ ' + _dt.datetime.now().strftime('%H:%M:%S')");
+                    @"# Standalone Python Component
+import Rhino.Geometry as rg
+import math
 
-                // Try Rhino 8 API first (RhinoCodePluginGH)
-                var created = TryCreateRhino8Python(doc, x, y, code);
-                if (created)
-                {
-                    SendSuccessResponse("create_python_script", correlationId, "Python script component created successfully using Rhino 8 API");
-                    return;
-                }
+# Process first input (numbers)
+if first:
+    result_first = [x * 2 for x in first]
+else:
+    result_first = []
 
-                // Fallback to legacy GhPython (Rhino 7 / legacy in Rhino 8)
-                var ok = TryCreateLegacyGhPython(doc, x, y, code);
-                if (ok)
-                {
-                    SendSuccessResponse("create_python_script", correlationId, "Python script component created successfully using legacy API");
-                    return;
-                }
+# Process second input (points)
+if second:
+    result_second = [rg.Point3d(pt.X + 10, pt.Y + 10, pt.Z) for pt in second]
+else:
+    result_second = []
 
-                // Both methods failed
-                var error = "Could not create a Python script component. Ensure RhinoCode or GHPython is available.";
-                FallbackPanel(doc, x, y,
-                    "Could not create a Python script component.\n" +
-                    "Rhino 8: ensure RhinoCode plugin is loaded.\n" +
-                    "Legacy: ensure GHPython is installed.");
+# Generate output data
+output = f'Processed {len(result_first)} numbers and {len(result_second)} points'
 
-                SendErrorResponse("create_python_script", correlationId, error);
-            }
-            catch (Exception ex)
-            {
-                var error = $"Failed to create Python script: {ex.Message}";
-                LogDebug(error);
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, error);
-                SendErrorResponse("create_python_script", correlationId, error);
-            }
-        }
-
-        private bool TryCreateRhino8Python(GH_Document doc, float x, float y, string code)
-        {
-            var t = Type.GetType("RhinoCodePluginGH.Components.Python3Component, RhinoCodePluginGH");
-            if (t == null) return false;
-
-            IGH_DocumentObject obj = null;
-
-            // Prefer overload: Create(string nickname, string source)
-            var methods = t.GetMethods(BindingFlags.Public | BindingFlags.Static)
-                           .Where(m => m.Name == "Create")
-                           .ToArray();
-
-            var createStringString = methods.FirstOrDefault(m =>
-            {
-                var ps = m.GetParameters();
-                return ps.Length == 2 &&
-                       ps[0].ParameterType == typeof(string) &&
-                       ps[1].ParameterType == typeof(string);
-            });
-
-            if (createStringString != null)
-            {
-                var o = createStringString.Invoke(null, new object[] { "LivePython", code });
-                obj = o as IGH_DocumentObject;
-            }
-            else
-            {
-                // Overload: Create(string nickname, Bitmap icon, bool openEditor)
-                var createStringBitmapBool = methods.FirstOrDefault(m =>
-                {
-                    var ps = m.GetParameters();
-                    return ps.Length == 3 &&
-                           ps[0].ParameterType == typeof(string) &&
-                           ps[1].ParameterType == typeof(Bitmap) &&
-                           ps[2].ParameterType == typeof(bool);
-                });
-
-                if (createStringBitmapBool != null)
-                {
-                    using (var bmp = new Bitmap(16, 16))
-                    {
-                        var o = createStringBitmapBool.Invoke(null, new object[] { "LivePython", bmp, false });
-                        obj = o as IGH_DocumentObject;
-
-                        // If Create overload did not accept source, set it via SetSource afterwards
-                        if (obj != null)
-                        {
-                            var setSource = t.GetMethod("SetSource", BindingFlags.Public | BindingFlags.Instance);
-                            if (setSource != null)
-                            {
-                                try { setSource.Invoke(obj, new object[] { code }); } catch { /* ignore */ }
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (obj == null) return false;
-
-            obj.CreateAttributes();
-            obj.Attributes.Pivot = new PointF(x, y);
-            doc.AddObject(obj, true);
-            doc.ScheduleSolution(1, _ => obj.ExpireSolution(true));
-            return true;
-        }
-
-        private bool TryCreateLegacyGhPython(GH_Document doc, float x, float y, string code)
-        {
-            // Old component: GhPython.Component.ZuiPythonComponent (IronPython)
-            var t = Type.GetType("GhPython.Component.ZuiPythonComponent, GhPython");
-            if (t == null) return false;
-
-            var obj = Activator.CreateInstance(t) as IGH_DocumentObject;
-            if (obj == null) return false;
-
-            obj.CreateAttributes();
-            obj.Attributes.Pivot = new PointF(x, y);
-
-            // Set legacy code property if available
-            TrySetScriptCode(obj, code, out _);
-
-            doc.AddObject(obj, true);
-            doc.ScheduleSolution(1, _ => obj.ExpireSolution(true));
-            return true;
-        }
-
-        // ---------------------- Advanced Python Component Creation (Rhino 8.14+) ----------------------
-
-        private void CreatePythonAdvanced(GH_Document doc, IDictionary<string, object> payload, string correlationId)
-        {
-            try
-            {
-                var x = F(payload.TryGetValue("x", out var xv) ? xv : null, 300f);
-                var y = F(payload.TryGetValue("y", out var yv) ? yv : null, 200f);
-                var code = S(payload.TryGetValue("code", out var cv) ? cv : null,
-                    "# Advanced Python Component\nimport Rhino.Geometry as rg\n\n# Process inputs\nresult = []\nfor i, item in enumerate(input_data if 'input_data' in locals() else []):\n    result.append(f\"Item {i}: {item}\")\n\noutput = result");
+# Set outputs
+first_output = result_first
+second_output = result_second");
 
                 // Extract input/output specifications
                 var inputs = payload.TryGetValue("inputs", out var inputsObj) ?
@@ -913,108 +794,135 @@ namespace LiveCoding
                     JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(outputsObj)) ??
                     new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
 
-                // Extract connection specifications
                 var connections = payload.TryGetValue("connections", out var connectionsObj) ?
                     JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(connectionsObj)) ??
                     new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
 
-                LogDebug($"CreatePythonAdvanced: inputs={inputs.Count}, outputs={outputs.Count}, connections={connections.Count}");
+                LogDebug($"CreatePythonComponent: inputs={inputs.Count}, outputs={outputs.Count}, connections={connections.Count}");
 
-                // Try the official Rhino 8.14+ API
-                var pythonComponent = CreateAdvancedPython814(doc, x, y, code, inputs, outputs, connections);
+                // Create the component using the proven method
+                var pythonComponent = CreatePythonComponentAdvanced814(doc, x, y, code, inputs, outputs, connections);
                 if (pythonComponent != null)
                 {
-                    var message = $"Advanced Python component created successfully with {inputs.Count} inputs, {outputs.Count} outputs, {connections.Count} connections";
+                    var message = $"Python component created successfully with {inputs.Count} inputs, {outputs.Count} outputs, {connections.Count} connections";
                     AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, message);
-                    SendSuccessResponse("create_python_advanced", correlationId, message);
+                    SendSuccessResponse("create_python_component", correlationId, message);
                     return;
                 }
 
-                // API not available - send error response
-                var error = "Advanced Python Creation Failed: Rhino 8.14+ API not available. Try create_python_xml endpoint instead.";
+                // Creation failed
+                var error = "Python Component Creation Failed: RhinoCode API not available. Ensure RhinoCode plugin is loaded.";
                 FallbackPanel(doc, x, y,
-                    "Advanced Python Creation Failed.\n" +
-                    "Rhino 8.14+ API not available.\n" +
-                    "Try create_python_xml endpoint instead.");
+                    "Python Component Creation Failed.\n" +
+                    "RhinoCode API not available.\n" +
+                    "Ensure RhinoCode plugin is loaded.");
 
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, error);
-                SendErrorResponse("create_python_advanced", correlationId, error);
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, error);
+                SendErrorResponse("create_python_component", correlationId, error);
             }
             catch (Exception ex)
             {
-                var error = $"Failed to create advanced Python component: {ex.Message}";
+                var error = $"Failed to create Python component: {ex.Message}";
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, error);
-                LogDebug($"CreatePythonAdvanced exception: {ex}");
-                SendErrorResponse("create_python_advanced", correlationId, error);
+                LogDebug($"CreatePythonComponent exception: {ex}");
+                SendErrorResponse("create_python_component", correlationId, error);
             }
         }
 
-        private IGH_Component CreateAdvancedPython814(GH_Document doc, float x, float y, string code,
+        private IGH_Component CreatePythonComponentAdvanced814(GH_Document doc, float x, float y, string code,
             List<Dictionary<string, object>> inputs, List<Dictionary<string, object>> outputs,
             List<Dictionary<string, object>> connections)
         {
             try
             {
-                // Try to use the direct API approach from Ehsan's forum post
-                LogDebug("Attempting to create Python3Component using direct API");
+                // Reference RhinoCodePluginGH.rhp and get required types
+                var pythonComponentType = Type.GetType("RhinoCodePluginGH.Components.Python3Component, RhinoCodePluginGH");
+                var scriptVariableParamType = Type.GetType("RhinoCodePluginGH.Parameters.ScriptVariableParam, RhinoCodePluginGH");
 
-                // First check if the types are available
-                var pythonType = Type.GetType("RhinoCodePluginGH.Components.Python3Component, RhinoCodePluginGH");
-                var paramType = Type.GetType("RhinoCodePluginGH.Parameters.ScriptVariableParam, RhinoCodePluginGH");
-
-                if (pythonType == null)
+                if (pythonComponentType == null)
                 {
                     LogDebug("RhinoCodePluginGH.Components.Python3Component type not found - API not available");
                     return null;
                 }
 
-                if (paramType == null)
+                if (scriptVariableParamType == null)
                 {
                     LogDebug("RhinoCodePluginGH.Parameters.ScriptVariableParam type not found - API not available");
                     return null;
                 }
 
-                // Try the Create method as shown in forum: Python3Component.Create("MyScript", code)
-                var createMethod = pythonType.GetMethod("Create", BindingFlags.Public | BindingFlags.Static);
-                if (createMethod == null)
-                {
-                    LogDebug("Python3Component.Create static method not found");
-                    return null;
-                }
+                // Get all Create methods and find the right overload
+                var createMethods = pythonComponentType.GetMethods(BindingFlags.Public | BindingFlags.Static)
+                    .Where(m => m.Name == "Create")
+                    .ToArray();
 
-                // Create the component using the API
                 object component = null;
-                var createParams = createMethod.GetParameters();
 
-                // Try different Create overloads
-                if (createParams.Length == 2 &&
-                    createParams[0].ParameterType == typeof(string) &&
-                    createParams[1].ParameterType == typeof(string))
+                // Try the (string nickname, string source) overload first
+                var stringStringMethod = createMethods.FirstOrDefault(m =>
                 {
-                    // Create(string name, string source)
-                    component = createMethod.Invoke(null, new object[] { "AdvancedPython", code });
-                    LogDebug("Used Create(string, string) overload");
-                }
-                else if (createParams.Length == 1 && createParams[0].ParameterType == typeof(string))
+                    var ps = m.GetParameters();
+                    return ps.Length == 2 &&
+                           ps[0].ParameterType == typeof(string) &&
+                           ps[1].ParameterType == typeof(string);
+                });
+
+                if (stringStringMethod != null)
                 {
-                    // Create(string name) - then set source separately
-                    component = createMethod.Invoke(null, new object[] { "AdvancedPython" });
-                    if (component != null)
-                    {
-                        var setSourceMethod = pythonType.GetMethod("SetSource");
-                        setSourceMethod?.Invoke(component, new object[] { code });
-                    }
-                    LogDebug("Used Create(string) overload with separate SetSource");
+                    component = stringStringMethod.Invoke(null, new object[] { "StandalonePython", code });
+                    LogDebug("Used Create(string, string) overload for standalone component");
                 }
                 else
                 {
-                    LogDebug($"No suitable Create method found. Available parameters: {createParams.Length}");
-                    return null;
+                    // Try (string nickname) overload and set source separately
+                    var singleStringMethod = createMethods.FirstOrDefault(m =>
+                    {
+                        var ps = m.GetParameters();
+                        return ps.Length == 1 && ps[0].ParameterType == typeof(string);
+                    });
+
+                    if (singleStringMethod != null)
+                    {
+                        component = singleStringMethod.Invoke(null, new object[] { "StandalonePython" });
+
+                        // Set source code
+                        var setSourceMethod = pythonComponentType.GetMethod("SetSource");
+                        setSourceMethod?.Invoke(component, new object[] { code });
+                        LogDebug("Used Create(string) overload with separate SetSource for standalone component");
+                    }
+                    else
+                    {
+                        // Try (string nickname, Bitmap icon, bool openEditor) overload
+                        var stringBitmapBoolMethod = createMethods.FirstOrDefault(m =>
+                        {
+                            var ps = m.GetParameters();
+                            return ps.Length == 3 &&
+                                   ps[0].ParameterType == typeof(string) &&
+                                   ps[1].ParameterType == typeof(Bitmap) &&
+                                   ps[2].ParameterType == typeof(bool);
+                        });
+
+                        if (stringBitmapBoolMethod != null)
+                        {
+                            using (var bmp = new Bitmap(16, 16))
+                            {
+                                component = stringBitmapBoolMethod.Invoke(null, new object[] { "StandalonePython", bmp, false });
+
+                                // Set source code after creation
+                                if (component != null)
+                                {
+                                    var setSourceMethod = pythonComponentType.GetMethod("SetSource");
+                                    setSourceMethod?.Invoke(component, new object[] { code });
+                                }
+                            }
+                            LogDebug("Used Create(string, Bitmap, bool) overload for standalone component");
+                        }
+                    }
                 }
 
                 if (component == null)
                 {
-                    LogDebug("Failed to create Python3Component instance");
+                    LogDebug("Failed to create Python3Component instance using any overload");
                     return null;
                 }
 
@@ -1027,7 +935,50 @@ namespace LiveCoding
 
                 LogDebug($"Successfully created Python3Component, adding {inputs.Count} inputs and {outputs.Count} outputs");
 
-                // Add custom inputs using the ScriptVariableParam approach from forum
+                // Remove default inputs and outputs (x, y, out, a) before adding custom ones
+                try
+                {
+                    // Clear default input parameters - collect first, then remove
+                    var inputParamsToRemove = new List<IGH_Param>();
+                    foreach (IGH_Param param in ghComponent.Params.Input)
+                    {
+                        inputParamsToRemove.Add(param);
+                    }
+
+                    foreach (var param in inputParamsToRemove)
+                    {
+                        var unregisterInputMethod = ghComponent.Params.GetType().GetMethod("UnregisterInputParameter", new Type[] { typeof(IGH_Param) });
+                        if (unregisterInputMethod != null)
+                        {
+                            unregisterInputMethod.Invoke(ghComponent.Params, new object[] { param });
+                            LogDebug($"Removed default input parameter: {param.Name}");
+                        }
+                    }
+
+                    // Clear default output parameters - collect first, then remove
+                    var outputParamsToRemove = new List<IGH_Param>();
+                    foreach (IGH_Param param in ghComponent.Params.Output)
+                    {
+                        outputParamsToRemove.Add(param);
+                    }
+
+                    foreach (var param in outputParamsToRemove)
+                    {
+                        var unregisterOutputMethod = ghComponent.Params.GetType().GetMethod("UnregisterOutputParameter", new Type[] { typeof(IGH_Param) });
+                        if (unregisterOutputMethod != null)
+                        {
+                            unregisterOutputMethod.Invoke(ghComponent.Params, new object[] { param });
+                            LogDebug($"Removed default output parameter: {param.Name}");
+                        }
+                    }
+                    LogDebug($"Successfully removed {inputParamsToRemove.Count} input and {outputParamsToRemove.Count} output default parameters");
+                }
+                catch (Exception ex)
+                {
+                    LogDebug($"Could not remove default parameters (continuing anyway): {ex.Message}");
+                }
+
+                // Add custom input parameters using the ScriptVariableParam approach
                 foreach (var inputSpec in inputs)
                 {
                     var name = S(inputSpec.TryGetValue("name", out var nameObj) ? nameObj : null, "input");
@@ -1035,18 +986,21 @@ namespace LiveCoding
                     var optional = inputSpec.TryGetValue("optional", out var optObj) && optObj is bool opt ? opt : true;
                     var access = S(inputSpec.TryGetValue("access", out var accessObj) ? accessObj : null, "item");
 
-                    // Create ScriptVariableParam as shown in forum: new ScriptVariableParam("first")
-                    var inputParam = Activator.CreateInstance(paramType, new object[] { name });
+                    // Create ScriptVariableParam
+                    var inputParam = Activator.CreateInstance(scriptVariableParamType, new object[] { name });
                     if (inputParam != null)
                     {
-                        // Set properties as shown in forum
-                        var prettyNameProp = paramType.GetProperty("PrettyName");
+                        // Set properties
+                        var prettyNameProp = scriptVariableParamType.GetProperty("PrettyName");
                         prettyNameProp?.SetValue(inputParam, nickname);
 
-                        var optionalProp = paramType.GetProperty("Optional");
+                        var toolTipProp = scriptVariableParamType.GetProperty("ToolTip");
+                        toolTipProp?.SetValue(inputParam, $"Input parameter: {nickname}");
+
+                        var optionalProp = scriptVariableParamType.GetProperty("Optional");
                         optionalProp?.SetValue(inputParam, optional);
 
-                        var accessProp = paramType.GetProperty("Access");
+                        var accessProp = scriptVariableParamType.GetProperty("Access");
                         if (accessProp != null)
                         {
                             GH_ParamAccess accessValue = GH_ParamAccess.item;
@@ -1059,192 +1013,130 @@ namespace LiveCoding
                             accessProp.SetValue(inputParam, accessValue);
                         }
 
-                        // CreateAttributes and register as shown in forum
+                        var allowTreeAccessProp = scriptVariableParamType.GetProperty("AllowTreeAccess");
+                        allowTreeAccessProp?.SetValue(inputParam, true);
+
+                        // Set type hints if specified
+                        if (inputSpec.TryGetValue("typeHint", out var typeHintObj))
+                        {
+                            var typeHint = S(typeHintObj);
+                            var typeHintsProp = scriptVariableParamType.GetProperty("TypeHints");
+                            var typeHints = typeHintsProp?.GetValue(inputParam);
+                            if (typeHints != null)
+                            {
+                                // Try different type hint methods
+                                if (typeHint == "double" || typeHint == "number")
+                                {
+                                    var selectMethod = typeHints.GetType().GetMethod("Select", new Type[] { typeof(Type) });
+                                    selectMethod?.Invoke(typeHints, new object[] { typeof(double) });
+                                }
+                                else
+                                {
+                                    var selectMethod = typeHints.GetType().GetMethod("Select", new Type[] { typeof(string) });
+                                    selectMethod?.Invoke(typeHints, new object[] { typeHint });
+                                }
+                            }
+                        }
+
+                        // CreateAttributes and register
                         var createAttribMethod = inputParam.GetType().GetMethod("CreateAttributes");
                         createAttribMethod?.Invoke(inputParam, null);
 
-                        var registerInputMethod = ghComponent.Params.GetType().GetMethod("RegisterInputParam");
+                        var registerInputMethod = ghComponent.Params.GetType().GetMethod("RegisterInputParam", new Type[] { typeof(IGH_Param) });
                         registerInputMethod?.Invoke(ghComponent.Params, new object[] { inputParam });
 
                         LogDebug($"Added input parameter: {name} ({nickname})");
                     }
                 }
 
-                // Add custom outputs
+                // Add custom output parameters
                 foreach (var outputSpec in outputs)
                 {
                     var name = S(outputSpec.TryGetValue("name", out var nameObj) ? nameObj : null, "output");
                     var nickname = S(outputSpec.TryGetValue("nickname", out var nickObj) ? nickObj : null, name);
+                    var hidden = outputSpec.TryGetValue("hidden", out var hiddenObj) && hiddenObj is bool h ? h : false;
 
-                    var outputParam = Activator.CreateInstance(paramType, new object[] { name });
+                    var outputParam = Activator.CreateInstance(scriptVariableParamType, new object[] { name });
                     if (outputParam != null)
                     {
-                        var prettyNameProp = paramType.GetProperty("PrettyName");
+                        var prettyNameProp = scriptVariableParamType.GetProperty("PrettyName");
                         prettyNameProp?.SetValue(outputParam, nickname);
+
+                        if (hidden)
+                        {
+                            var hiddenProp = scriptVariableParamType.GetProperty("Hidden");
+                            hiddenProp?.SetValue(outputParam, true);
+                        }
 
                         var createAttribMethod = outputParam.GetType().GetMethod("CreateAttributes");
                         createAttribMethod?.Invoke(outputParam, null);
 
-                        var registerOutputMethod = ghComponent.Params.GetType().GetMethod("RegisterOutputParam");
+                        var registerOutputMethod = ghComponent.Params.GetType().GetMethod("RegisterOutputParam", new Type[] { typeof(IGH_Param) });
                         registerOutputMethod?.Invoke(ghComponent.Params, new object[] { outputParam });
 
                         LogDebug($"Added output parameter: {name} ({nickname})");
                     }
                 }
 
-                // Call VariableParameterMaintenance as shown in forum
-                var maintenanceMethod = pythonType.GetMethod("VariableParameterMaintenance");
+                // Call VariableParameterMaintenance
+                var maintenanceMethod = pythonComponentType.GetMethod("VariableParameterMaintenance");
                 if (maintenanceMethod != null)
                 {
                     maintenanceMethod.Invoke(component, null);
-                    LogDebug("Called VariableParameterMaintenance");
+                    LogDebug("Called VariableParameterMaintenance for standalone component");
                 }
                 else
                 {
                     LogDebug("VariableParameterMaintenance method not found");
                 }
 
-                // Position and add to document
+                // Set special parameters
+                var usingStandardOutputProp = pythonComponentType.GetProperty("UsingStandardOutputParam");
+                usingStandardOutputProp?.SetValue(component, true);
+
+                var graftStandardOutputProp = pythonComponentType.GetProperty("GraftStandardOutputLines");
+                graftStandardOutputProp?.SetValue(component, true);
+
+                var marshGuidsProp = pythonComponentType.GetProperty("MarshGuids");
+                marshGuidsProp?.SetValue(component, false);
+
+                // Position component and add to document
                 ghComponent.CreateAttributes();
                 ghComponent.Attributes.Pivot = new PointF(x, y);
-                doc.AddObject(ghComponent, true);
 
-                LogDebug("Component added to document successfully");
+                // Add to document safely
+                try
+                {
+                    doc.AddObject(ghComponent, true);
 
-                // Handle connections after adding to document
-                doc.ScheduleSolution(15, _ => {
-                    try
-                    {
-                        MakeConnections(doc, ghComponent, connections);
-                        ghComponent.ExpireSolution(true);
-                        LogDebug("Connections and solution update completed");
-                    }
-                    catch (Exception ex)
-                    {
-                        LogDebug($"Connection failed: {ex.Message}");
-                    }
-                });
+                    // Schedule a solution to update the component
+                    doc.ScheduleSolution(10, _ => {
+                        try
+                        {
+                            MakeConnections(doc, ghComponent, connections);
+                            ghComponent.ExpireSolution(true);
+                            LogDebug("Connections and solution update completed for standalone component");
+                        }
+                        catch (Exception ex)
+                        {
+                            LogDebug($"Connection failed for standalone component: {ex.Message}");
+                        }
+                    });
+                }
+                catch (Exception ex)
+                {
+                    LogDebug($"Error adding standalone component to document: {ex.Message}");
+                    return null;
+                }
 
+                LogDebug("Standalone component added to document successfully");
                 return ghComponent;
             }
             catch (Exception ex)
             {
-                LogDebug($"CreateAdvancedPython814 failed: {ex.Message}");
+                LogDebug($"CreatePythonComponentAdvanced814 failed: {ex.Message}");
                 return null;
             }
-        }
-
-        // ---------------------- XML-based Python Component Creation ----------------------
-
-        private void CreatePythonXml(GH_Document doc, IDictionary<string, object> payload, string correlationId)
-        {
-            try
-            {
-                var x = F(payload.TryGetValue("x", out var xv) ? xv : null, 400f);
-                var y = F(payload.TryGetValue("y", out var yv) ? yv : null, 200f);
-                var code = S(payload.TryGetValue("code", out var cv) ? cv : null,
-                    "# XML-based Python Component\nimport Rhino.Geometry as rg\n\n# Process data\nresult = f\"XML Python executed at {System.DateTime.Now}\"");
-
-                // Extract input/output specifications
-                var inputs = payload.TryGetValue("inputs", out var inputsObj) ?
-                    JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(inputsObj)) ??
-                    new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
-
-                var outputs = payload.TryGetValue("outputs", out var outputsObj) ?
-                    JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(outputsObj)) ??
-                    new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
-
-                var connections = payload.TryGetValue("connections", out var connectionsObj) ?
-                    JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(connectionsObj)) ??
-                    new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
-
-                LogDebug($"CreatePythonXml: inputs={inputs.Count}, outputs={outputs.Count}, connections={connections.Count}");
-
-                var pythonComponent = CreatePythonWithXml(doc, x, y, code, inputs, outputs, connections);
-                if (pythonComponent != null)
-                {
-                    var message = $"XML-based Python component created successfully with {inputs.Count} inputs, {outputs.Count} outputs, {connections.Count} connections";
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, message);
-                    SendSuccessResponse("create_python_xml", correlationId, message);
-                    return;
-                }
-
-                // Creation failed
-                var error = "XML Python Creation Failed: Neither RhinoCode nor GhPython available. Install Python component support.";
-                FallbackPanel(doc, x, y,
-                    "XML Python Creation Failed.\n" +
-                    "Neither RhinoCode nor GhPython available.\n" +
-                    "Install Python component support.");
-
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, error);
-                SendErrorResponse("create_python_xml", correlationId, error);
-            }
-            catch (Exception ex)
-            {
-                var error = $"Failed to create XML Python component: {ex.Message}";
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, error);
-                LogDebug($"CreatePythonXml exception: {ex}");
-                SendErrorResponse("create_python_xml", correlationId, error);
-            }
-        }
-
-        private IGH_Component CreatePythonWithXml(GH_Document doc, float x, float y, string code,
-            List<Dictionary<string, object>> inputs, List<Dictionary<string, object>> outputs,
-            List<Dictionary<string, object>> connections)
-        {
-            // Try RhinoCode first
-            var pythonType = Type.GetType("RhinoCodePluginGH.Components.Python3Component, RhinoCodePluginGH");
-            if (pythonType == null)
-            {
-                // Fallback to legacy GhPython
-                pythonType = Type.GetType("GhPython.Component.ZuiPythonComponent, GhPython");
-                if (pythonType == null)
-                {
-                    LogDebug("No Python component types available");
-                    return null;
-                }
-            }
-
-            // Create basic component instance
-            var component = Activator.CreateInstance(pythonType) as IGH_Component;
-            if (component == null)
-            {
-                LogDebug("Failed to create component instance");
-                return null;
-            }
-
-            // Add custom parameters using reflection
-            AddCustomParameters(component, inputs, outputs);
-
-            // Position component
-            component.CreateAttributes();
-            component.Attributes.Pivot = new PointF(x, y);
-
-            // Use XML serialization to set the script code
-            if (!SetCodeViaXml(component, code))
-            {
-                LogDebug("Failed to set code via XML, trying legacy approach");
-                TrySetScriptCode(component, code, out var debug);
-                LogDebug($"Legacy code setting: {debug}");
-            }
-
-            // Add to document
-            doc.AddObject(component, true);
-
-            // Handle connections after adding to document
-            doc.ScheduleSolution(15, _ => {
-                try
-                {
-                    MakeConnections(doc, component, connections);
-                    component.ExpireSolution(true);
-                }
-                catch (Exception ex)
-                {
-                    LogDebug($"XML connection failed: {ex.Message}");
-                }
-            });
-
-            return component;
         }
 
         private void AddCustomParameters(IGH_Component component, List<Dictionary<string, object>> inputs, List<Dictionary<string, object>> outputs)
@@ -1588,6 +1480,10 @@ namespace LiveCoding
         protected override Bitmap Icon => null;
         public override Guid ComponentGuid => new Guid("4A5F8E6B-6F2E-4F92-A3B5-6B1C7C0D5B42");
     }
+
+
+
+
 
     // ---------------------- WS plumbing ----------------------
 
