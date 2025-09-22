@@ -1,24 +1,23 @@
-# 🐍 Rhino 8 Python Component Creation Testing Guide
+# 🐍 Python Component Creation Testing Guide
 
-This guide will help you test the new programmatic Python component creation features for Grasshopper in Rhino 8.
+This guide will help you test the Python component creation feature for Grasshopper in Rhino 8.
 
 ## 🎯 Overview
 
-Two new endpoints have been added to create Python components programmatically:
+The **`create_python_component`** endpoint enables programmatic Python component creation using the proven RhinoCodePluginGH API with ScriptVariableParam support.
 
-1. **`create_python_advanced`** - Uses the official Rhino 8.14+ `Python3Component.Create` API
-2. **`create_python_xml`** - Uses XML serialization workaround for older versions
-
-Both endpoints support:
-- ✅ Custom input/output parameter specification
+Features:
+- ✅ Custom input/output parameter specification using ScriptVariableParam
 - ✅ Custom Python code injection
 - ✅ Automatic component connections
 - ✅ Position control on canvas
+- ✅ Robust method overload handling
+- ✅ Type hints and parameter configuration
 
 ## 🔧 Prerequisites
 
 ### Required Software
-- **Rhino 8** (any version, but 8.14+ recommended for best results)
+- **Rhino 8** with RhinoCode plugin loaded
 - **Grasshopper** loaded with your LiveCodingComponent plugin
 - **Python 3.7+** with `websockets` package
 
@@ -40,7 +39,7 @@ Both endpoints support:
 
 ## 🧪 Running the Tests
 
-### Method 1: Automated Test Script
+### Automated Test Script
 
 Navigate to your project directory and run the comprehensive test:
 
@@ -51,9 +50,11 @@ python test_script.py
 
 **Expected Output:**
 ```
-🐍 Rhino 8 Python Component Creation Tester
-==================================================
-🧪 Starting Rhino 8 Python Component Creation Tests
+🐍 Python Component Creation & Connection Tester
+============================================================
+🔧 Testing: Proven Method + Component Creation + Custom I/O + Connections
+============================================================
+🧪 Starting Python Component Creation Test
 ============================================================
 🔌 Connecting to Grasshopper...
 ✅ Connected successfully!
@@ -62,82 +63,58 @@ python test_script.py
 📤 Sending: ping
 ✅ Ping successful!
 
-🎚️ Creating test slider for connections...
+🔧 Creating source components for connections...
 📤 Sending: create_slider
-✅ Test slider created!
+📤 Sending: create_slider
+📤 Sending: create_python_component
+✅ Created 3/3 source components successfully!
 
-🚀 Testing Advanced Python Component Creation (Rhino 8.14+ API)...
-📤 Sending: create_python_advanced
-✅ Advanced Python component created successfully!
-
-📋 Testing XML-based Python Component Creation...
-📤 Sending: create_python_xml
-✅ XML-based Python component created successfully!
+🎯 Testing Python Component Creation (Proven Method)...
+📤 Sending: create_python_component
+✅ Python component created successfully!
 
 📊 Getting canvas information...
 📤 Sending: get_canvas_info
 ✅ Canvas info retrieved successfully!
-📈 # Components: 5 | Connections: 2 | Sources: 2 | Sinks: 1
+📈 # Components: 5 | Connections: 3 | Sources: 3 | Sinks: 1
+
+🔗 Verifying component connections...
+📤 Sending: get_canvas_info
+📊 Found 4 components with potential inputs
+🔗 Found 3 components with connections
+✅ Connection verification successful!
 
 📋 Test Results Summary:
 ==============================
 ping                 ✅ PASS
-create_slider        ✅ PASS
-advanced_python      ✅ PASS
-xml_python           ✅ PASS
+create_sources       ✅ PASS
+python_component     ✅ PASS
 canvas_info          ✅ PASS
+verify_connections   ✅ PASS
 
 🎯 Total: 5/5 tests passed
-🎉 All tests passed! Both Python creation methods are working.
+🎉 All tests passed! Python component creation system working perfectly!
+
+🔧 Method Status:
+✅ create_python_component - Working (ScriptVariableParam API)
 
 🔌 Disconnected from Grasshopper
 
-🚀 Ready to use programmatic Python component creation!
+🚀 Ready to use Python component creation!
 ```
 
+## 🎯 What Gets Tested
 
+The test script validates:
 
-## 📋 Endpoint Specifications
+1. **Basic Connectivity** - WebSocket connection to Grasshopper
+2. **Source Component Creation** - Sliders and Python components for testing
+3. **Python Component Creation** - Main functionality using ScriptVariableParam API
+4. **Canvas Analysis** - Retrieving and parsing canvas information
+5. **Connection Verification** - Ensuring automatic connections work properly
 
-### `create_python_advanced`
+Each test provides detailed feedback about what succeeded or failed, making it easy to identify and resolve issues.
 
-**Purpose:** Creates Python components using the official Rhino 8.14+ API
+---
 
-**Payload Parameters:**
-- `x` (float, optional): X position on canvas (default: 300)
-- `y` (float, optional): Y position on canvas (default: 200)
-- `code` (string, optional): Python code to execute
-- `inputs` (array, optional): Input parameter specifications
-- `outputs` (array, optional): Output parameter specifications
-- `connections` (array, optional): Connection specifications
-
-**Input/Output Specification:**
-```json
-{
-  "name": "parameter_name",
-  "nickname": "short_name",
-  "optional": true,
-  "access": "item|list|tree"
-}
-```
-
-**Connection Specification:**
-```json
-{
-  "sourceId": "component_guid_or_nickname",
-  "sourceOutput": 0,
-  "targetInput": 0
-}
-```
-
-### `create_python_xml`
-
-**Purpose:** Creates Python components using XML serialization workaround
-
-**Parameters:** Same as `create_python_advanced`
-
-**Differences:**
-- Works with older Rhino 8 versions
-- Uses reflection and XML manipulation
-- May have limited parameter type support
-- Fallback for when official API is not available
+*Ready to create Python components programmatically! 🎉*

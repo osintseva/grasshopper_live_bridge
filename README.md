@@ -58,16 +58,16 @@ python test_script.py
 **📋 For detailed testing instructions and troubleshooting:** [**PYTHON_COMPONENT_TESTING.md**](./PYTHON_COMPONENT_TESTING.md)
 
 The test suite validates:
-- ✅ All three Python component creation methods (basic, advanced, XML)
+- ✅ Python component creation using proven ScriptVariableParam API
 - ✅ Custom inputs/outputs with automatic connections
-- ✅ Cross-method compatibility across Rhino versions
+- ✅ Robust method overload handling and error recovery
 - ✅ Connection verification through canvas analysis
 
 ## Features ✨
 
 - **🔌 WebSocket API** - Real-time communication with Grasshopper (`ws://localhost:8181/live`)
 - **📊 Canvas Analysis** - Get complete pseudocode representation of your Grasshopper definition
-- **🐍 Advanced Python Creation** - Three methods for programmatic Python component creation with custom I/O
+- **🐍 Python Component Creation** - Proven method for programmatic Python component creation with custom I/O using ScriptVariableParam
 - **🔗 Automatic Connections** - Smart component wiring and parameter management
 - **🤖 MCP Integration** - Perfect for AI agents to understand and modify your canvas
 
