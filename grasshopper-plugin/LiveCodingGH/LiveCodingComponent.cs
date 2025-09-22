@@ -1,4 +1,3 @@
-// grasshopper_component/LiveCodingGH/LiveCodingComponent.cs
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -1587,6 +1586,398 @@ namespace LiveCoding
 
         protected override Bitmap Icon => null;
         public override Guid ComponentGuid => new Guid("4A5F8E6B-6F2E-4F92-A3B5-6B1C7C0D5B42");
+    }
+
+    /// <summary>
+    /// Component that automatically creates a Python script component on the canvas
+    /// </summary>
+    public class CreatePythonScriptComponent : GH_Component
+    {
+        private bool _hasCreated = false;
+        private bool _lastTriggerState = false;
+
+        public CreatePythonScriptComponent()
+            : base("Create Python Script", "CreatePy",
+                   "Automatically creates a Python script component at 20,20 with custom inputs and outputs",
+                   "Params", "Util")
+        { }
+
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
+        {
+            pManager.AddBooleanParameter("Trigger", "T", "Trigger to create Python component", GH_ParamAccess.item, false);
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+        {
+            pManager.AddTextParameter("Status", "S", "Creation status", GH_ParamAccess.item);
+            pManager.AddTextParameter("Component ID", "ID", "GUID of created component", GH_ParamAccess.item);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            bool trigger = false;
+            if (!DA.GetData(0, ref trigger))
+            {
+                DA.SetData(0, "Ready - set Trigger to True to create Python component");
+                DA.SetData(1, "");
+                return;
+            }
+
+            // Only create when trigger changes from false to true (rising edge)
+            bool shouldCreate = trigger && !_lastTriggerState && !_hasCreated;
+            _lastTriggerState = trigger;
+
+            if (!shouldCreate)
+            {
+                if (_hasCreated)
+                {
+                    DA.SetData(0, "Python component already created. Reset component to create another.");
+                    DA.SetData(1, "");
+                }
+                else
+                {
+                    DA.SetData(0, "Ready - set Trigger to True to create Python component");
+                    DA.SetData(1, "");
+                }
+                return;
+            }
+
+            try
+            {
+                var doc = OnPingDocument();
+                if (doc == null)
+                {
+                    DA.SetData(0, "Error: No active document");
+                    DA.SetData(1, "");
+                    return;
+                }
+
+                // Create Python component using RhinoCodePluginGH API
+                var success = CreatePythonComponentAdvanced(doc, out string componentId, out string statusMessage);
+
+                if (success)
+                {
+                    _hasCreated = true;
+                }
+
+                DA.SetData(0, statusMessage);
+                DA.SetData(1, componentId);
+            }
+            catch (Exception ex)
+            {
+                DA.SetData(0, $"Error: {ex.Message}");
+                DA.SetData(1, "");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+            }
+        }
+
+        private bool CreatePythonComponentAdvanced(GH_Document doc, out string componentId, out string status)
+        {
+            componentId = "";
+            status = "";
+
+            try
+            {
+                // Reference RhinoCodePluginGH.rhp and get required types
+                var pythonComponentType = Type.GetType("RhinoCodePluginGH.Components.Python3Component, RhinoCodePluginGH");
+                var scriptVariableParamType = Type.GetType("RhinoCodePluginGH.Parameters.ScriptVariableParam, RhinoCodePluginGH");
+
+                if (pythonComponentType == null)
+                {
+                    status = "Error: RhinoCodePluginGH.Components.Python3Component not found. Ensure RhinoCode plugin is loaded.";
+                    return false;
+                }
+
+                if (scriptVariableParamType == null)
+                {
+                    status = "Error: RhinoCodePluginGH.Parameters.ScriptVariableParam not found. Ensure RhinoCode plugin is loaded.";
+                    return false;
+                }
+
+                // Create Python component with custom code
+                string customCode = @"
+# Custom Python Script Component
+import Rhino.Geometry as rg
+import math
+
+# Process first input (numbers)
+if first:
+    result_first = [x * 2 for x in first]
+else:
+    result_first = []
+
+# Process second input (points)
+if second:
+    result_second = [rg.Point3d(pt.X + 10, pt.Y + 10, pt.Z) for pt in second]
+else:
+    result_second = []
+
+# Generate output data
+output = f'Processed {len(result_first)} numbers and {len(result_second)} points'
+
+# Set outputs
+first_output = result_first
+second_output = result_second
+";
+
+                // Get all Create methods and find the right overload
+                var createMethods = pythonComponentType.GetMethods(BindingFlags.Public | BindingFlags.Static)
+                    .Where(m => m.Name == "Create")
+                    .ToArray();
+
+                object component = null;
+
+                // Try the (string nickname, string source) overload first
+                var stringStringMethod = createMethods.FirstOrDefault(m =>
+                {
+                    var ps = m.GetParameters();
+                    return ps.Length == 2 &&
+                           ps[0].ParameterType == typeof(string) &&
+                           ps[1].ParameterType == typeof(string);
+                });
+
+                if (stringStringMethod != null)
+                {
+                    component = stringStringMethod.Invoke(null, new object[] { "MyScript", customCode });
+                }
+                else
+                {
+                    // Try (string nickname) overload and set source separately
+                    var singleStringMethod = createMethods.FirstOrDefault(m =>
+                    {
+                        var ps = m.GetParameters();
+                        return ps.Length == 1 && ps[0].ParameterType == typeof(string);
+                    });
+
+                    if (singleStringMethod != null)
+                    {
+                        component = singleStringMethod.Invoke(null, new object[] { "MyScript" });
+
+                        // Set source code
+                        var setSourceMethod = pythonComponentType.GetMethod("SetSource");
+                        setSourceMethod?.Invoke(component, new object[] { customCode });
+                    }
+                    else
+                    {
+                        // Try (string nickname, Bitmap icon, bool openEditor) overload
+                        var stringBitmapBoolMethod = createMethods.FirstOrDefault(m =>
+                        {
+                            var ps = m.GetParameters();
+                            return ps.Length == 3 &&
+                                   ps[0].ParameterType == typeof(string) &&
+                                   ps[1].ParameterType == typeof(Bitmap) &&
+                                   ps[2].ParameterType == typeof(bool);
+                        });
+
+                        if (stringBitmapBoolMethod != null)
+                        {
+                            using (var bmp = new Bitmap(16, 16))
+                            {
+                                component = stringBitmapBoolMethod.Invoke(null, new object[] { "MyScript", bmp, false });
+
+                                // Set source code after creation
+                                if (component != null)
+                                {
+                                    var setSourceMethod = pythonComponentType.GetMethod("SetSource");
+                                    setSourceMethod?.Invoke(component, new object[] { customCode });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (component == null)
+                {
+                    status = "Error: Failed to create Python3Component instance";
+                    return false;
+                }
+
+                var ghComponent = component as IGH_Component;
+                if (ghComponent == null)
+                {
+                    status = "Error: Created component is not IGH_Component";
+                    return false;
+                }
+
+                // Add custom input parameters using ScriptVariableParam
+
+                // First input: "first" - numbers
+                var firstParam = Activator.CreateInstance(scriptVariableParamType, new object[] { "first" });
+                if (firstParam != null)
+                {
+                    // Set properties as shown in provided syntax
+                    var prettyNameProp = scriptVariableParamType.GetProperty("PrettyName");
+                    prettyNameProp?.SetValue(firstParam, "First Input");
+
+                    var toolTipProp = scriptVariableParamType.GetProperty("ToolTip");
+                    toolTipProp?.SetValue(firstParam, "This is the first input");
+
+                    var optionalProp = scriptVariableParamType.GetProperty("Optional");
+                    optionalProp?.SetValue(firstParam, true);
+
+                    var accessProp = scriptVariableParamType.GetProperty("Access");
+                    accessProp?.SetValue(firstParam, GH_ParamAccess.list);
+
+                    var allowTreeAccessProp = scriptVariableParamType.GetProperty("AllowTreeAccess");
+                    allowTreeAccessProp?.SetValue(firstParam, true);
+
+                    // Set type hints - TypeHints.Select(typeof(double))
+                    var typeHintsProp = scriptVariableParamType.GetProperty("TypeHints");
+                    var typeHints = typeHintsProp?.GetValue(firstParam);
+                    if (typeHints != null)
+                    {
+                        var selectMethod = typeHints.GetType().GetMethod("Select", new Type[] { typeof(Type) });
+                        selectMethod?.Invoke(typeHints, new object[] { typeof(double) });
+                    }
+
+                    // CreateAttributes and register
+                    var createAttribMethod = firstParam.GetType().GetMethod("CreateAttributes");
+                    createAttribMethod?.Invoke(firstParam, null);
+
+                    var registerInputMethod = ghComponent.Params.GetType().GetMethod("RegisterInputParam", new Type[] { typeof(IGH_Param) });
+                    registerInputMethod?.Invoke(ghComponent.Params, new object[] { firstParam });
+                }
+
+                // Second input: "second" - points
+                var secondParam = Activator.CreateInstance(scriptVariableParamType, new object[] { "second" });
+                if (secondParam != null)
+                {
+                    var prettyNameProp = scriptVariableParamType.GetProperty("PrettyName");
+                    prettyNameProp?.SetValue(secondParam, "Second Input");
+
+                    var toolTipProp = scriptVariableParamType.GetProperty("ToolTip");
+                    toolTipProp?.SetValue(secondParam, "This is the second input");
+
+                    var optionalProp = scriptVariableParamType.GetProperty("Optional");
+                    optionalProp?.SetValue(secondParam, true);
+
+                    var allowTreeAccessProp = scriptVariableParamType.GetProperty("AllowTreeAccess");
+                    allowTreeAccessProp?.SetValue(secondParam, true);
+
+                    // Set type hints - TypeHints.Select("Point3dList")
+                    var typeHintsProp = scriptVariableParamType.GetProperty("TypeHints");
+                    var typeHints = typeHintsProp?.GetValue(secondParam);
+                    if (typeHints != null)
+                    {
+                        var selectMethod = typeHints.GetType().GetMethod("Select", new Type[] { typeof(string) });
+                        selectMethod?.Invoke(typeHints, new object[] { "Point3dList" });
+                    }
+
+                    var createAttribMethod = secondParam.GetType().GetMethod("CreateAttributes");
+                    createAttribMethod?.Invoke(secondParam, null);
+
+                    var registerInputMethod = ghComponent.Params.GetType().GetMethod("RegisterInputParam", new Type[] { typeof(IGH_Param) });
+                    registerInputMethod?.Invoke(ghComponent.Params, new object[] { secondParam });
+                }
+
+                // Add custom output parameters
+
+                // Main output: "output"
+                var outputParam = Activator.CreateInstance(scriptVariableParamType, new object[] { "output" });
+                if (outputParam != null)
+                {
+                    var hiddenProp = scriptVariableParamType.GetProperty("Hidden");
+                    hiddenProp?.SetValue(outputParam, true);
+
+                    var createAttribMethod = outputParam.GetType().GetMethod("CreateAttributes");
+                    createAttribMethod?.Invoke(outputParam, null);
+
+                    var registerOutputMethod = ghComponent.Params.GetType().GetMethod("RegisterOutputParam", new Type[] { typeof(IGH_Param) });
+                    registerOutputMethod?.Invoke(ghComponent.Params, new object[] { outputParam });
+                }
+
+                // Additional outputs for processed data
+                var firstOutputParam = Activator.CreateInstance(scriptVariableParamType, new object[] { "first_output" });
+                if (firstOutputParam != null)
+                {
+                    var prettyNameProp = scriptVariableParamType.GetProperty("PrettyName");
+                    prettyNameProp?.SetValue(firstOutputParam, "First Output");
+
+                    var createAttribMethod = firstOutputParam.GetType().GetMethod("CreateAttributes");
+                    createAttribMethod?.Invoke(firstOutputParam, null);
+
+                    var registerOutputMethod = ghComponent.Params.GetType().GetMethod("RegisterOutputParam", new Type[] { typeof(IGH_Param) });
+                    registerOutputMethod?.Invoke(ghComponent.Params, new object[] { firstOutputParam });
+                }
+
+                var secondOutputParam = Activator.CreateInstance(scriptVariableParamType, new object[] { "second_output" });
+                if (secondOutputParam != null)
+                {
+                    var prettyNameProp = scriptVariableParamType.GetProperty("PrettyName");
+                    prettyNameProp?.SetValue(secondOutputParam, "Second Output");
+
+                    var createAttribMethod = secondOutputParam.GetType().GetMethod("CreateAttributes");
+                    createAttribMethod?.Invoke(secondOutputParam, null);
+
+                    var registerOutputMethod = ghComponent.Params.GetType().GetMethod("RegisterOutputParam", new Type[] { typeof(IGH_Param) });
+                    registerOutputMethod?.Invoke(ghComponent.Params, new object[] { secondOutputParam });
+                }
+
+                // Call VariableParameterMaintenance as shown in syntax
+                var maintenanceMethod = pythonComponentType.GetMethod("VariableParameterMaintenance");
+                maintenanceMethod?.Invoke(component, null);
+
+                // Set special parameters as shown in syntax
+                var usingStandardOutputProp = pythonComponentType.GetProperty("UsingStandardOutputParam");
+                usingStandardOutputProp?.SetValue(component, true);
+
+                var graftStandardOutputProp = pythonComponentType.GetProperty("GraftStandardOutputLines");
+                graftStandardOutputProp?.SetValue(component, true);
+
+                var marshGuidsProp = pythonComponentType.GetProperty("MarshGuids");
+                marshGuidsProp?.SetValue(component, false);
+
+                // Position component at 20,20 and add to document
+                ghComponent.CreateAttributes();
+                ghComponent.Attributes.Pivot = new PointF(20f, 20f);
+
+                // Add to document safely
+                try
+                {
+                    doc.AddObject(ghComponent, true);
+
+                    // Schedule a solution to update the component
+                    doc.ScheduleSolution(10, _ => {
+                        try
+                        {
+                            ghComponent.ExpireSolution(true);
+                        }
+                        catch { /* ignore solution errors */ }
+                    });
+                }
+                catch (Exception ex)
+                {
+                    status = $"Error adding component to document: {ex.Message}";
+                    return false;
+                }
+
+                componentId = ghComponent.InstanceGuid.ToString();
+                status = $"Python component created successfully at (20,20) with ID: {componentId}";
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                status = $"Error creating Python component: {ex.Message}";
+                return false;
+            }
+        }
+
+        public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
+        {
+            base.AppendAdditionalMenuItems(menu);
+            Menu_AppendItem(menu, "Reset Component", ResetComponent, true, false);
+        }
+
+        private void ResetComponent(object sender, EventArgs e)
+        {
+            _hasCreated = false;
+            _lastTriggerState = false;
+            ExpireSolution(true);
+        }
+
+        protected override Bitmap Icon => null;
+        public override Guid ComponentGuid => new Guid("7B3E9F2A-8C5D-4A1F-9E6B-2C4F8A7E3D5B");
     }
 
     // ---------------------- WS plumbing ----------------------
