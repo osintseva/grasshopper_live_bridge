@@ -55,7 +55,7 @@ cd scripts/testing
 python test_script.py
 ```
 
-**📋 For detailed testing instructions and troubleshooting:** [**PYTHON_COMPONENT_TESTING.md**](./PYTHON_COMPONENT_TESTING.md)
+**📋 For detailed testing instructions and troubleshooting:** [**PYTHON_COMPONENT_TESTING.md**](./TESTING.md)
 
 The test suite validates:
 - ✅ Python component creation using proven ScriptVariableParam API
