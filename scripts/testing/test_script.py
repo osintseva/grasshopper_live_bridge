@@ -233,22 +233,52 @@ vertices = points[:-1] if len(points) > 1 else points  # Remove duplicate closin
 
         # Parse the pseudocode to look for connections
         pseudocode = response.get("data", "")
-        lines = pseudocode.split("\\n")
+        print(f"🔍 Debug: First 200 chars of pseudocode: {repr(pseudocode[:200])}")
+
+        # Try multiple splitting strategies
+        if "\n" in pseudocode:
+            lines = pseudocode.split("\n")
+        elif "\\n" in pseudocode:
+            lines = pseudocode.split("\\n")
+        elif "\r\n" in pseudocode:
+            lines = pseudocode.split("\r\n")
+        else:
+            lines = [pseudocode]  # Single line fallback
+
+        print(f"📝 Debug: Found {len(lines)} lines in pseudocode")
 
         # Look for function calls with parameters (indicating connections)
         connections_found = 0
         components_with_inputs = 0
 
         for line in lines:
+            stripped_line = line.strip()
+            if not stripped_line or stripped_line.startswith("#"):
+                continue
+
+            print(f"  📋 Line: {stripped_line[:100]}{'...' if len(stripped_line) > 100 else ''}")
+
             if "=" in line and "(" in line and ")" in line:
                 # This looks like a component assignment with function call
-                if not line.strip().startswith("#"):
-                    components_with_inputs += 1
-                    # Count parameters in function call
+                components_with_inputs += 1
+
+                # Extract the function call part
+                try:
                     if "(" in line and ")" in line:
-                        func_part = line.split("(")[1].split(")")[0]
-                        if func_part.strip():  # Has parameters
-                            connections_found += 1
+                        func_start = line.find("(")
+                        func_end = line.rfind(")")
+                        if func_start < func_end:
+                            func_part = line[func_start + 1:func_end].strip()
+                            print(f"    🔗 Function params: '{func_part}'")
+                            # Check if it has actual parameters (not empty or just spaces/comments)
+                            if func_part and not func_part.startswith("#"):
+                                # Count comma-separated parameters
+                                params = [p.strip() for p in func_part.split(",") if p.strip() and not p.strip().startswith("#")]
+                                if params:
+                                    connections_found += 1
+                                    print(f"    ✅ Found {len(params)} connection parameters: {params}")
+                except Exception as e:
+                    print(f"    ❌ Error parsing line: {e}")
 
         print(f"📊 Found {components_with_inputs} components with potential inputs")
         print(f"🔗 Found {connections_found} components with connections")
@@ -273,7 +303,13 @@ vertices = points[:-1] if len(points) > 1 else points  # Remove duplicate closin
             print("✅ Canvas info retrieved successfully!")
             # Print a summary
             data = response.get("data", "")
-            lines = data.split("\\n")
+            # Use proper line splitting
+            if "\n" in data:
+                lines = data.split("\n")
+            elif "\\n" in data:
+                lines = data.split("\\n")
+            else:
+                lines = [data]
             for line in lines:
                 if line.startswith("# Components:"):
                     print(f"📈 {line}")

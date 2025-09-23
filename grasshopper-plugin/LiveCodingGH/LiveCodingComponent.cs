@@ -777,12 +777,6 @@ namespace LiveCoding
                 slider.NickName = name;
 
                 doc.AddObject(slider, true);
-                LogDebug($"🎚️ Slider '{name}' added to document. Document has {doc.Objects.Count} objects");
-                LogDebug($"📄 Document context: {doc.GetHashCode():X8}, Active: {doc == Grasshopper.Instances.ActiveCanvas?.Document}");
-
-                // Verify the slider was actually added
-                var foundSlider = doc.FindObject(slider.InstanceGuid, true);
-                LogDebug($"🔍 Slider verification: Found={foundSlider != null}, GUID={slider.InstanceGuid}");
 
                 // Send response with slider UUID for future connections
                 var responseData = new Dictionary<string, object>
@@ -793,7 +787,6 @@ namespace LiveCoding
                 };
 
                 SendSuccessResponseWithData("create_slider", correlationId, $"Slider '{name}' created successfully", responseData);
-                LogDebug($"Slider created successfully: {name} at ({x}, {y}) with UUID: {slider.InstanceGuid}");
             }
             catch (Exception ex)
             {
@@ -854,34 +847,6 @@ second_output = result_second");
 
                 LogDebug($"CreatePythonComponent: inputs={inputs.Count}, outputs={outputs.Count}, connections={connections.Count}");
 
-                // Log connection details for debugging
-                for (int i = 0; i < connections.Count; i++)
-                {
-                    var conn = connections[i];
-                    var sourceId = conn.TryGetValue("sourceId", out var srcId) ? srcId?.ToString() : "null";
-                    var sourceOutput = conn.TryGetValue("sourceOutput", out var srcOut) ? srcOut?.ToString() : "0";
-                    var targetInput = conn.TryGetValue("targetInput", out var tgtIn) ? tgtIn?.ToString() : "0";
-                    LogDebug($"  Connection {i + 1}: sourceId='{sourceId}', sourceOutput={sourceOutput}, targetInput={targetInput}");
-                }
-
-                // Debug: Check if source components exist before creation
-                LogDebug("🔍 Pre-creation component check:");
-                LogDebug($"📊 Document has {doc.Objects.Count} total objects before Python component creation");
-                for (int i = 0; i < connections.Count; i++)
-                {
-                    var conn = connections[i];
-                    var sourceId = conn.TryGetValue("sourceId", out var srcId) ? srcId?.ToString() : "null";
-
-                    // Try to find the source component
-                    var sourceObj = doc.FindObject(Guid.Parse(sourceId), true);
-                    LogDebug($"  Source '{sourceId.Substring(0, 8)}...': Found={sourceObj != null}");
-
-                    if (sourceObj != null)
-                    {
-                        LogDebug($"    Type: {sourceObj.GetType().Name}, Nickname: {(sourceObj as IGH_Component)?.NickName ?? "N/A"}");
-                    }
-                }
-
                 // Create the component using the proven method
                 var pythonComponent = CreatePythonComponentAdvanced814(doc, x, y, code, inputs, outputs, connections);
                 if (pythonComponent != null)
@@ -901,7 +866,6 @@ second_output = result_second");
                     };
 
                     SendSuccessResponseWithData("create_python_component", correlationId, message, responseData);
-                    LogDebug($"Created Python component with UUID: {pythonComponent.InstanceGuid}");
                     return;
                 }
 
@@ -1203,17 +1167,14 @@ second_output = result_second");
                 try
                 {
                     doc.AddObject(ghComponent, true);
-                    LogDebug("Component added to document successfully");
 
                     // Make connections immediately after adding component (outside of solution context)
                     // This follows Grasshopper best practices for topology changes
                     if (connections != null && connections.Count > 0)
                     {
-                        LogDebug($"Making {connections.Count} connections immediately after component creation");
                         try
                         {
                             MakeConnections(doc, ghComponent, connections);
-                            LogDebug("Connections completed, triggering solution update");
 
                             // Trigger a solution update after connections are made
                             ghComponent.ExpireSolution(true);
@@ -1224,10 +1185,6 @@ second_output = result_second");
                             LogDebug($"Connection failed for component: {ex.Message}");
                         }
                     }
-                    else
-                    {
-                        LogDebug("No connections to make");
-                    }
                 }
                 catch (Exception ex)
                 {
@@ -1235,7 +1192,6 @@ second_output = result_second");
                     return null;
                 }
 
-                LogDebug("Standalone component added to document successfully");
                 return ghComponent;
             }
             catch (Exception ex)
@@ -1378,28 +1334,6 @@ second_output = result_second");
 
         private void MakeConnections(GH_Document doc, IGH_Component targetComponent, List<Dictionary<string, object>> connections)
         {
-            LogDebug($"🔗 MakeConnections called with {connections.Count} connections for component {targetComponent.NickName ?? targetComponent.Name}");
-            LogDebug($"Target component has {targetComponent.Params.Input.Count} inputs and {targetComponent.Params.Output.Count} outputs");
-            LogDebug($"📊 Document has {doc.Objects.Count} total objects");
-            LogDebug($"📄 Document context: {doc.GetHashCode():X8}, Active: {doc == Grasshopper.Instances.ActiveCanvas?.Document}");
-
-            // Log ALL objects in the document for debugging
-            LogDebug("📋 ALL DOCUMENT OBJECTS:");
-            for (int i = 0; i < doc.Objects.Count; i++)
-            {
-                var obj = doc.Objects[i];
-                var objType = obj.GetType().Name;
-                var nickname = "";
-                var guid = obj.InstanceGuid.ToString();
-
-                if (obj is IGH_Component comp)
-                    nickname = comp.NickName ?? comp.Name ?? "Unnamed";
-                else if (obj.GetType().GetProperty("NickName") != null)
-                    nickname = obj.GetType().GetProperty("NickName").GetValue(obj)?.ToString() ?? "Unnamed";
-
-                LogDebug($"  [{i}] {objType}: '{nickname}' ({guid.Substring(0, 8)}...)");
-            }
-
             foreach (var connection in connections)
             {
                 try
@@ -1411,24 +1345,16 @@ second_output = result_second");
                         Convert.ToInt32(tgtInObj) : 0;
 
                     if (string.IsNullOrEmpty(sourceId))
-                    {
-                        LogDebug("Connection failed: sourceId is empty");
                         continue;
-                    }
-
-                    LogDebug($"Attempting connection: sourceId='{sourceId}', sourceOutput={sourceOutput}, targetInput={targetInput}");
 
                     // Find source object (component OR parameter like slider) with enhanced search strategy
                     IGH_DocumentObject sourceObject = null;
                     IGH_Param sourceParam = null;
-                    string searchMethod = "";
 
                     // Strategy 1: Try as full GUID first
                     if (Guid.TryParse(sourceId, out var fullSourceGuid))
                     {
                         sourceObject = doc.FindObject(fullSourceGuid, true);
-                        searchMethod = "full GUID";
-                        LogDebug($"Tried full GUID lookup: {sourceObject != null}, Type: {sourceObject?.GetType().Name ?? "null"}");
                     }
 
                     // Strategy 2: If not found, try as full GUID without hyphens
@@ -1438,8 +1364,6 @@ second_output = result_second");
                         if (Guid.TryParse(formattedGuid, out var formattedSourceGuid))
                         {
                             sourceObject = doc.FindObject(formattedSourceGuid, true);
-                            searchMethod = "formatted GUID";
-                            LogDebug($"Tried formatted GUID lookup: {sourceObject != null}, Type: {sourceObject?.GetType().Name ?? "null"}");
                         }
                     }
 
@@ -1448,8 +1372,6 @@ second_output = result_second");
                     {
                         sourceObject = doc.Objects.OfType<IGH_Component>()
                             .FirstOrDefault(c => c.NickName == sourceId);
-                        searchMethod = "component nickname";
-                        LogDebug($"Tried component nickname lookup: {sourceObject != null}");
                     }
 
                     // Strategy 4: If still not found, try finding by nickname (parameters/sliders)
@@ -1457,8 +1379,6 @@ second_output = result_second");
                     {
                         sourceObject = doc.Objects.OfType<IGH_Param>()
                             .FirstOrDefault(p => p.NickName == sourceId);
-                        searchMethod = "parameter nickname";
-                        LogDebug($"Tried parameter nickname lookup: {sourceObject != null}");
                     }
 
                     // Strategy 5: Try partial UUID matching
@@ -1466,8 +1386,6 @@ second_output = result_second");
                     {
                         sourceObject = doc.Objects
                             .FirstOrDefault(obj => obj.InstanceGuid.ToString("N").StartsWith(sourceId, StringComparison.OrdinalIgnoreCase));
-                        searchMethod = "partial UUID";
-                        LogDebug($"Tried partial UUID lookup: {sourceObject != null}");
                     }
 
                     // Determine source parameter for connection
@@ -1477,51 +1395,24 @@ second_output = result_second");
                         if (sourceOutput < sourceComponent.Params.Output.Count)
                         {
                             sourceParam = sourceComponent.Params.Output[sourceOutput];
-                            LogDebug($"Source is component '{sourceComponent.NickName}', using output[{sourceOutput}]");
                         }
                     }
                     else if (sourceObject is IGH_Param directParam)
                     {
                         // It's a parameter (like a slider) - use it directly
                         sourceParam = directParam;
-                        LogDebug($"Source is parameter '{directParam.NickName}', using directly");
                     }
 
                     if (sourceParam == null || sourceObject == null)
-                    {
-                        LogDebug($"Connection failed: Could not find source object/parameter with ID '{sourceId}' using any search method");
-
-                        // List available objects for debugging
-                        var availableObjects = doc.Objects
-                            .Select(obj => {
-                                var name = "";
-                                if (obj is IGH_Component comp) name = comp.NickName ?? comp.Name ?? "Unknown";
-                                else if (obj is IGH_Param param) name = param.NickName ?? "Parameter";
-                                else name = "Unknown";
-                                return $"{obj.GetType().Name}: '{name}' ({obj.InstanceGuid.ToString("N").Substring(0, 8)})";
-                            })
-                            .Take(10);
-                        LogDebug($"Available objects: {string.Join(", ", availableObjects)}");
                         continue;
-                    }
 
                     // Validate input index
                     if (targetInput >= targetComponent.Params.Input.Count)
-                    {
-                        LogDebug($"Connection failed: Target component '{targetComponent.NickName}' only has {targetComponent.Params.Input.Count} inputs, requested index {targetInput}");
                         continue;
-                    }
 
                     // Make the connection
                     var targetParam = targetComponent.Params.Input[targetInput];
-
                     targetParam.AddSource(sourceParam);
-
-                    var sourceName = "";
-                    if (sourceObject is IGH_Component comp) sourceName = comp.NickName ?? comp.Name ?? "Component";
-                    else if (sourceObject is IGH_Param param) sourceName = param.NickName ?? "Parameter";
-
-                    LogDebug($"✅ Successfully connected {sourceName} to {targetComponent.NickName ?? targetComponent.Name}[{targetInput}] (found via {searchMethod})");
                 }
                 catch (Exception ex)
                 {
