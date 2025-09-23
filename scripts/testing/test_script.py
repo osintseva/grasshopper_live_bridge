@@ -35,6 +35,7 @@ class GrasshopperTester:
         self.ws = None
         self.correlation_id = None
         self.responses = {}
+        self.slider_uuids = {}  # Store component UUIDs for connections
 
     async def connect(self):
         """Connect to Grasshopper WebSocket"""
@@ -159,10 +160,7 @@ vertices = points[:-1] if len(points) > 1 else points  # Remove duplicate closin
                 {"name": "polygon", "nickname": "P"},
                 {"name": "vertices", "nickname": "V"},
             ],
-            "connections": [
-                {"sourceId": "NumSlider", "sourceOutput": 0, "targetInput": 0},
-                {"sourceId": "CountSlider", "sourceOutput": 0, "targetInput": 1},
-            ],
+            "connections": self._build_connections(),
         }
 
         response = await self.send_command("create_python_component", payload)
@@ -185,10 +183,44 @@ vertices = points[:-1] if len(points) > 1 else points  # Remove duplicate closin
         slider2_payload = {"x": 50, "y": 200, "nickname": "CountSlider"}
         slider2_response = await self.send_command("create_slider", slider2_payload)
 
+        # Store component UUIDs for connections
+        if slider_response and slider_response.get("status") == "success":
+            data = slider_response.get("data", {})
+            uuid = data.get("componentUuid") or data.get("componentId")
+            if uuid:
+                self.slider_uuids["NumSlider"] = uuid
+                print(f"📝 NumSlider UUID: {uuid}")
+
+        if slider2_response and slider2_response.get("status") == "success":
+            data = slider2_response.get("data", {})
+            uuid = data.get("componentUuid") or data.get("componentId")
+            if uuid:
+                self.slider_uuids["CountSlider"] = uuid
+                print(f"📝 CountSlider UUID: {uuid}")
+
         success_count = sum([bool(slider_response), bool(slider2_response)])
         print(f"✅ Created {success_count}/2 source sliders successfully!")
+        print(f"🔗 Stored {len(self.slider_uuids)} slider UUIDs for connections")
 
         return success_count >= 2  # Both sliders needed for testing
+
+    def _build_connections(self):
+        """Build connection list using actual component UUIDs when available"""
+        connections = []
+
+        # Connection 1: NumSlider -> Python component input 0
+        num_slider_id = self.slider_uuids.get("NumSlider", "NumSlider")  # Fallback to nickname
+        connections.append({"sourceId": num_slider_id, "sourceOutput": 0, "targetInput": 0})
+
+        # Connection 2: CountSlider -> Python component input 1
+        count_slider_id = self.slider_uuids.get("CountSlider", "CountSlider")  # Fallback to nickname
+        connections.append({"sourceId": count_slider_id, "sourceOutput": 0, "targetInput": 1})
+
+        print(f"🔗 Building connections:")
+        for i, conn in enumerate(connections):
+            print(f"   {i+1}. {conn['sourceId'][:8]}{'...' if len(conn['sourceId']) > 8 else ''} -> input {conn['targetInput']}")
+
+        return connections
 
     async def verify_connections(self):
         """Verify that connections were actually created"""

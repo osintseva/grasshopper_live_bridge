@@ -143,9 +143,15 @@ export async function getComponentInfo(args = {}) {
     const pseudocode = await cache.getCanvas();
 
     // Find the component's line in pseudocode for more details
-    const shortUuid = componentUuid.replace(/-/g, '').substring(0, 8);
+    // Try to find by full UUID first, then fall back to short UUID for backwards compatibility
     const lines = pseudocode.split('\n');
-    const componentLine = lines.find(line => line.includes(shortUuid));
+    const fullUuidNoHyphens = componentUuid.replace(/-/g, '');
+    const shortUuid = fullUuidNoHyphens.substring(0, 8);
+
+    let componentLine = lines.find(line => line.includes(fullUuidNoHyphens));
+    if (!componentLine) {
+      componentLine = lines.find(line => line.includes(shortUuid));
+    }
 
     return {
       found: true,
@@ -361,6 +367,50 @@ export async function createScriptComponent(args = {}) {
   try {
     const client = getGrasshopperClient();
 
+    // Validate connections before creating component
+    if (connections && connections.length > 0) {
+      logger.info(`Validating ${connections.length} connections before component creation`);
+
+      const cache = getCanvasCache();
+      const pseudocode = await cache.getCanvas();
+      const lines = pseudocode.split('\n');
+
+      for (const connection of connections) {
+        const { sourceId, sourceOutput = 0, targetInput = 0 } = connection;
+
+        if (!sourceId) {
+          logger.warn('Skipping connection with empty sourceId');
+          continue;
+        }
+
+        // Try to find the source component in current canvas
+        let sourceFound = false;
+
+        // Check if sourceId is a full UUID
+        if (sourceId.length === 36 || sourceId.length === 32) {
+          const uuidToCheck = sourceId.replace(/-/g, '');
+          sourceFound = lines.some(line => line.includes(uuidToCheck));
+        }
+
+        // Check if sourceId is a nickname by looking for it in component lines
+        if (!sourceFound) {
+          sourceFound = lines.some(line => {
+            // Look for patterns like "nickname_uuid:" in component definitions
+            return line.includes(':') && line.includes('=') &&
+                   (line.toLowerCase().includes(sourceId.toLowerCase()) ||
+                    line.includes(`${sourceId}_`));
+          });
+        }
+
+        if (!sourceFound) {
+          logger.warn(`Warning: Source component '${sourceId}' not found in current canvas. Connection may fail.`);
+          logger.info(`Available components in canvas: ${lines.filter(line => line.includes(':') && line.includes('=')).length}`);
+        } else {
+          logger.info(`✓ Source component '${sourceId}' found for connection`);
+        }
+      }
+    }
+
     const payload = {
       x,
       y,
@@ -374,6 +424,7 @@ export async function createScriptComponent(args = {}) {
       payload.nickname = nickname;
     }
 
+    logger.info('Sending create_python_component request to Grasshopper');
     const response = await client.send('create_python_component', payload);
 
     if (response && response.status === 'success') {
@@ -383,9 +434,18 @@ export async function createScriptComponent(args = {}) {
       const cache = getCanvasCache();
       await cache.getCanvas(true);
 
+      // Extract component information from response
+      const componentData = response.data || {};
+      const componentId = componentData.componentId || componentData.componentUuid || response.componentId;
+
       return {
         success: true,
-        componentId: response.data?.componentId || response.componentId,
+        componentId,
+        componentUuid: componentData.componentUuid || componentId,
+        nickname: componentData.nickname || nickname,
+        inputCount: componentData.inputCount || inputs.length,
+        outputCount: componentData.outputCount || outputs.length,
+        connectionCount: componentData.connectionCount || connections.length,
         message: 'Python component created successfully',
         response: response.data || response
       };
