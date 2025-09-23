@@ -158,6 +158,107 @@ export function createMcpServer(config = {}) {
             additionalProperties: false,
           },
         },
+        {
+          name: "create_script_component",
+          description: "Create a Python component on the Grasshopper canvas with custom inputs/outputs and connections",
+          inputSchema: {
+            type: "object",
+            properties: {
+              x: {
+                type: "number",
+                description: "X coordinate on canvas",
+                default: 200
+              },
+              y: {
+                type: "number",
+                description: "Y coordinate on canvas",
+                default: 300
+              },
+              code: {
+                type: "string",
+                description: "Python code for the component"
+              },
+              inputs: {
+                type: "array",
+                description: "Input parameter definitions",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: {
+                      type: "string",
+                      description: "Input parameter name"
+                    },
+                    nickname: {
+                      type: "string",
+                      description: "Short display name"
+                    },
+                    optional: {
+                      type: "boolean",
+                      description: "Whether input is optional",
+                      default: true
+                    },
+                    access: {
+                      type: "string",
+                      description: "Access type (item, list, tree)",
+                      default: "item"
+                    },
+                    typeHint: {
+                      type: "string",
+                      description: "Type hint (double, number, string, etc.)"
+                    }
+                  },
+                  required: ["name"]
+                }
+              },
+              outputs: {
+                type: "array",
+                description: "Output parameter definitions",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: {
+                      type: "string",
+                      description: "Output parameter name"
+                    },
+                    nickname: {
+                      type: "string",
+                      description: "Short display name"
+                    }
+                  },
+                  required: ["name"]
+                }
+              },
+              connections: {
+                type: "array",
+                description: "Automatic connections to create",
+                items: {
+                  type: "object",
+                  properties: {
+                    sourceId: {
+                      type: "string",
+                      description: "Source component ID or nickname"
+                    },
+                    sourceOutput: {
+                      type: "number",
+                      description: "Source output index"
+                    },
+                    targetInput: {
+                      type: "number",
+                      description: "Target input index"
+                    }
+                  },
+                  required: ["sourceId", "sourceOutput", "targetInput"]
+                }
+              },
+              nickname: {
+                type: "string",
+                description: "Component nickname"
+              }
+            },
+            required: ["code"],
+            additionalProperties: false,
+          },
+        },
       ],
     };
   });
@@ -199,7 +300,11 @@ export function createMcpServer(config = {}) {
         case "find_components":
           result = await canvasTools.findComponents(args || {});
           break;
-        
+
+        case "create_script_component":
+          result = await canvasTools.createScriptComponent(args || {});
+          break;
+
         default:
           throw new McpError(
             ErrorCode.MethodNotFound,

@@ -2,6 +2,7 @@ import { getCanvasCache } from '../state/canvas-cache.js';
 import { getStore } from '../state/store.js';
 import { getLogger } from '../utils/logger.js';
 import { queryJson, filterJson, extractFields } from '../utils/json-query.js';
+import { getGrasshopperClient } from '../websocket-client.js';
 
 const logger = getLogger();
 const store = getStore();
@@ -340,6 +341,64 @@ export async function analyzePseudocode(args = {}) {
     return analysis;
   } catch (error) {
     logger.error('Failed to analyze pseudocode', error);
+    throw error;
+  }
+}
+
+export async function createScriptComponent(args = {}) {
+  const {
+    x = 200,
+    y = 300,
+    code = '',
+    inputs = [],
+    outputs = [],
+    connections = [],
+    nickname = null
+  } = args;
+
+  logger.toolCall('createScriptComponent', args);
+
+  try {
+    const client = getGrasshopperClient();
+
+    const payload = {
+      x,
+      y,
+      code,
+      inputs,
+      outputs,
+      connections
+    };
+
+    if (nickname) {
+      payload.nickname = nickname;
+    }
+
+    const response = await client.send('create_python_component', payload);
+
+    if (response && response.status === 'success') {
+      logger.info('Python component created successfully');
+
+      // Force refresh canvas cache since we've modified it
+      const cache = getCanvasCache();
+      await cache.getCanvas(true);
+
+      return {
+        success: true,
+        componentId: response.data?.componentId || response.componentId,
+        message: 'Python component created successfully',
+        response: response.data || response
+      };
+    } else {
+      logger.error('Failed to create Python component', response);
+      return {
+        success: false,
+        error: response?.error || response?.message || 'Unknown error',
+        response
+      };
+    }
+  } catch (error) {
+    logger.error('Failed to create Python component', error);
     throw error;
   }
 }
