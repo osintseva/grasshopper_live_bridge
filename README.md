@@ -55,13 +55,23 @@ cd scripts/testing
 python test_script.py
 ```
 
-**📋 For detailed testing instructions and troubleshooting:** [**PYTHON_COMPONENT_TESTING.md**](./TESTING.md)
+📄 **Canvas State Documentation**
+
+Capture and save your current canvas for documentation:
+
+```bash
+cd scripts/testing
+python save_canvas_state.py
+```
+
+**📋 For detailed testing instructions and troubleshooting:** [**TESTING.md**](./TESTING.md)
 
 The test suite validates:
 - ✅ Python component creation using proven ScriptVariableParam API
 - ✅ Custom inputs/outputs with automatic connections
 - ✅ Robust method overload handling and error recovery
 - ✅ Connection verification through canvas analysis
+- ✅ Canvas state extraction and markdown documentation
 
 ## Features ✨
 

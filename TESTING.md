@@ -48,6 +48,21 @@ cd scripts/testing
 python test_script.py
 ```
 
+### Canvas State Documentation
+
+Capture and save your current canvas state for documentation:
+
+```bash
+cd scripts/testing
+python save_canvas_state.py
+```
+
+This utility script:
+- ✅ Connects to Grasshopper via WebSocket
+- ✅ Fetches complete canvas pseudocode
+- ✅ Saves to timestamped markdown file (`canvas_state_YYYYMMDD_HHMMSS.md`)
+- ✅ Formats with proper markdown structure for easy reading
+
 **Expected Output:**
 ```
 🐍 Python Component Creation & Connection Tester
