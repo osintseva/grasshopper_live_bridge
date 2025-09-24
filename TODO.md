@@ -47,106 +47,6 @@ This document tracks the development roadmap for enhanced Claude Code integratio
 - **Returns:** Component GUID and success status
 
 
-### [ ] Add Component Context Retrieval Tool
-
-**Goal:** Help Claude understand component relationships when analyzing specific parts of a definition.
-
-**What it does:**
-- Retrieves contextual information around a specific component
-- Configurable depth (N nodes left/right in dependency graph)
-- Returns upstream/downstream connected components with details
-
-**Implementation Plan:**
-- **Tool Name:** `mcp__grasshopper-bridge__get_component_context`
-- **New Endpoint:** `get_component_context` in Grasshopper plugin
-- **Payload:** `{ componentId, depth?, includeDataPreviews? }`
-- **Response:** `{ centerComponent, upstreamComponents[], downstreamComponents[], connections[] }`
-
-
-### [ ] Enable Dynamic Data Preview Control
-
-**Current State:** Data preview functionality exists but is disabled by default.
-
-**Goal:** Allow Claude to toggle data previews without rebuilding the plugin.
-
-**What's needed:**
-- **New MCP Tool:** `set_data_preview_mode`
-- **New Endpoint:** `set_preview_mode` in Grasshopper plugin
-- **Location:** Currently at `grasshopper-plugin/LiveCodingGH/LiveCodingComponent.cs:279`
-
-
-### [ ]  Canvas State Diffing
-**Goal:** Compare canvas states before/after operations to track changes.
-
-**Tool Name:** `mcp__grasshopper-bridge__canvas_diff`
-
-
-
-### [ ] Component Position Integration
-**Goal:** Include x,y position as property of components when tools like find_components or get_canvas_state are called.
-
-**What's needed:**
-- Modify component representation in pseudocode to include position information
-- Update all relevant MCP tools to include position data
-- Explore optimal format for position data in pseudocode
-
-**Current Challenge:** Find the best way to include position data in pseudocode representation.
-
-**Proposed Format Options:**
-
-**Option 1: Extended Component Name with Position**
-```
-output1, output2:Type, output3 = "Component Name"(x=25, y=165, uuid=24ab..., input1, input2, input3) # Data Preview: [values...]
-```
-
-**Option 2: Inline Position Annotation**
-```
-component_name_uuid@(25,165): Type = Component(arg1, arg2) # inputs: [input1, input2] outputs: [output1, output2]
-```
-
-**Option 3: Structured Comment Format**
-```
-component_name_uuid: Type = Component(arg1, arg2)
-# Position: (25, 165) | UUID: 24ab...cdef | Inputs: [input1(unused), input2] | Outputs: [output1, output2(unused)]
-```
-
-**Implementation Locations to Address:**
-- `grasshopper-plugin/LiveCodingGH/LiveCodingComponent.cs` - GetCanvasInfo() method (~line 309)
-- `mcp-server/src/tools/canvas.js` - All component-related functions
-- Component data models in `PseudocodeComponent` class (~line 1773)
-- Update `findComponents()`, `getCanvasState()`, `getComponentInfo()` functions
-
-
-### [ ] Complete Input/Output Notation Enhancement
-**Goal:** Include all inputs and outputs in component notation, even if unused, to help Claude understand component capabilities.
-
-**What's needed:**
-- Modify pseudocode generation to show all parameters, marking unused ones with "_" or special notation
-- Include input/output UUIDs for precise wire management
-- Ensure Claude can understand component I/O capabilities even when not all are used
-
-**Current State Analysis:**
-- Current pseudocode only shows connected inputs/used outputs
-- Need to show full component interface regardless of usage
-- Input/output parameter details available in `PseudocodeInput` and `PseudocodeOutput` classes
-
-**Enhanced Format Examples:**
-```
-# Full notation showing all inputs/outputs
-component_name_uuid: OutputType = ComponentFunction(
-  input1=connection_source,
-  input2=_,           # unused input
-  input3=another_source
-) -> [output1, output2=_, output3]  # output2 unused
-```
-
-**Implementation Plan:**
-- Modify `GetCanvasInfo()` in LiveCodingComponent.cs to include all parameters
-- Add parameter UUID tracking to `PseudocodeInput` and `PseudocodeOutput`
-- Update pseudocode generation logic to show unused parameters with "_" notation
-- Ensure MCP tools can parse and understand the enhanced notation
-
-
 ## Pseudocode Format Migration
 
 ### [ ] Switch to Enhanced Pipe-Delimited with Types Format
@@ -181,6 +81,36 @@ explode_curve|150,300|i9j0k1l2: List[Curve] = "Explode" | ["Curve"(Curve):input1
 - Unused parameter visibility for connection possibilities
 - Exact UUIDs for wire management operations
 - Component type recognition (built-in vs custom clusters)
+
+
+### [ ] Complete Input/Output Notation Enhancement
+**Goal:** Include all inputs and outputs in component notation, even if unused, to help Claude understand component capabilities.
+
+**What's needed:**
+- Modify pseudocode generation to show all parameters, marking unused ones with "_" or special notation
+- Include input/output UUIDs for precise wire management
+- Ensure Claude can understand component I/O capabilities even when not all are used
+
+**Current State Analysis:**
+- Current pseudocode only shows connected inputs/used outputs
+- Need to show full component interface regardless of usage
+- Input/output parameter details available in `PseudocodeInput` and `PseudocodeOutput` classes
+
+**Enhanced Format Examples:**
+```
+# Full notation showing all inputs/outputs
+component_name_uuid: OutputType = ComponentFunction(
+  input1=connection_source,
+  input2=_,           # unused input
+  input3=another_source
+) -> [output1, output2=_, output3]  # output2 unused
+```
+
+**Implementation Plan:**
+- Modify `GetCanvasInfo()` in LiveCodingComponent.cs to include all parameters
+- Add parameter UUID tracking to `PseudocodeInput` and `PseudocodeOutput`
+- Update pseudocode generation logic to show unused parameters with "_" notation
+- Ensure MCP tools can parse and understand the enhanced notation
 
 
 ### [ ] Wire Connection/Disconnection MCP Tool
@@ -262,4 +192,38 @@ processor@(300,200): Geometry = Transform(geometry=new_slider.output, transform=
 - Support intelligent component positioning (auto-layout or specified positions)
 - Handle component dependencies and connection order
 - Validate pseudocode syntax before component creation
+
+
+### [ ] Add Component Context Retrieval Tool
+
+**Goal:** Help Claude understand component relationships when analyzing specific parts of a definition.
+
+**What it does:**
+- Retrieves contextual information around a specific component
+- Configurable depth (N nodes left/right in dependency graph)
+- Returns upstream/downstream connected components with details
+
+**Implementation Plan:**
+- **Tool Name:** `mcp__grasshopper-bridge__get_component_context`
+- **New Endpoint:** `get_component_context` in Grasshopper plugin
+- **Payload:** `{ componentId, depth?, includeDataPreviews? }`
+- **Response:** `{ centerComponent, upstreamComponents[], downstreamComponents[], connections[] }`
+
+
+### [ ] Enable Dynamic Data Preview Control
+
+**Current State:** Data preview functionality exists but is disabled by default.
+
+**Goal:** Allow Claude to toggle data previews without rebuilding the plugin.
+
+**What's needed:**
+- **New MCP Tool:** `set_data_preview_mode`
+- **New Endpoint:** `set_preview_mode` in Grasshopper plugin
+- **Location:** Currently at `grasshopper-plugin/LiveCodingGH/LiveCodingComponent.cs:279`
+
+
+### [ ]  Canvas State Diffing
+**Goal:** Compare canvas states before/after operations to track changes.
+
+**Tool Name:** `mcp__grasshopper-bridge__canvas_diff`
 
