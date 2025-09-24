@@ -11,6 +11,82 @@ const store = getStore();
  * Canvas inspection tools for MCP and HTTP
  */
 
+/**
+ * Parse a line in the new Enhanced Pipe-Delimited with Types format
+ * Format: variable|x,y|comp_uuid: ComponentType = "Component Name" | ["Input Name"(InputType):param_uuid] | ["Output Name"(OutputType):param_uuid]
+ */
+function parseEnhancedPipeDelimitedLine(line) {
+  // Skip comments and empty lines
+  if (line.trim().startsWith('#') || line.trim() === '') {
+    return null;
+  }
+
+  // Match the enhanced pipe-delimited format with more flexible bracket handling
+  // We need to handle nested brackets in type names like List[Curve]
+  const match = line.match(/^(\w+)\|(\d+,\d+)\|(\w+):\s*(.+?)\s*=\s*"([^"]+)"\s*\|\s*(\[.*?\])\s*\|\s*(\[.*?\])(?:\s*#\s*(.+))?$/);
+
+  if (!match) {
+    return null;
+  }
+
+  const [, variable, position, compUuid, componentType, componentName, inputSection, outputSection, dataPreview] = match;
+
+  // Parse position
+  const [x, y] = position.split(',').map(n => parseInt(n));
+
+  // Parse inputs
+  const inputs = parseParameterSection(inputSection);
+
+  // Parse outputs
+  const outputs = parseParameterSection(outputSection);
+
+  return {
+    variable,
+    position: { x, y },
+    compUuid,
+    componentType: componentType.trim(),
+    componentName,
+    inputs,
+    outputs,
+    dataPreview: dataPreview?.trim(),
+    rawLine: line.trim()
+  };
+}
+
+/**
+ * Parse a parameter section like ["Input Name"(InputType):param_uuid, "_Unused Input"(Type):param_uuid]
+ */
+function parseParameterSection(section) {
+  if (!section || section === '[]') {
+    return [];
+  }
+
+  // Remove the brackets
+  const content = section.slice(1, -1);
+  if (!content.trim()) {
+    return [];
+  }
+
+  const parameters = [];
+  // Split by comma, but be careful of commas inside quoted strings
+  const parts = content.split(/,(?=\s*")/);
+
+  for (const part of parts) {
+    const paramMatch = part.trim().match(/"([^"]+)"\(([^)]+)\):(\w+)/);
+    if (paramMatch) {
+      const [, name, type, uuid] = paramMatch;
+      parameters.push({
+        name: name,
+        type: type,
+        uuid: uuid,
+        isUnused: name.startsWith('_')
+      });
+    }
+  }
+
+  return parameters;
+}
+
 export async function getCanvasState(args = {}) {
   const { includeSelection = false, forceRefresh = false } = args;
 
@@ -143,14 +219,30 @@ export async function getComponentInfo(args = {}) {
     const pseudocode = await cache.getCanvas();
 
     // Find the component's line in pseudocode for more details
-    // Try to find by full UUID first, then fall back to short UUID for backwards compatibility
+    // Try to parse with the new Enhanced Pipe-Delimited format first
     const lines = pseudocode.split('\n');
     const fullUuidNoHyphens = componentUuid.replace(/-/g, '');
     const shortUuid = fullUuidNoHyphens.substring(0, 8);
 
-    let componentLine = lines.find(line => line.includes(fullUuidNoHyphens));
+    let componentLine = null;
+    let parsedComponent = null;
+
+    // Try to find the component using the new format
+    for (const line of lines) {
+      const parsed = parseEnhancedPipeDelimitedLine(line);
+      if (parsed && (parsed.compUuid === shortUuid || parsed.compUuid === fullUuidNoHyphens)) {
+        componentLine = line;
+        parsedComponent = parsed;
+        break;
+      }
+    }
+
+    // Fallback to old string matching for backwards compatibility
     if (!componentLine) {
-      componentLine = lines.find(line => line.includes(shortUuid));
+      componentLine = lines.find(line => line.includes(fullUuidNoHyphens));
+      if (!componentLine) {
+        componentLine = lines.find(line => line.includes(shortUuid));
+      }
     }
 
     return {
@@ -158,6 +250,7 @@ export async function getComponentInfo(args = {}) {
       component,
       componentUuid,
       pseudocodeLine: componentLine,
+      parsedComponent,
       pseudocodeContext: pseudocode
     };
   } catch (error) {
@@ -192,14 +285,23 @@ export async function getCanvasStatistics(args = {}) {
       }
     }
 
-    // Count component types from function calls
+    // Count component types from both new and old formats
     const componentTypes = {};
-    const functionCallRegex = /(\w+):\s*[\w\[\],]+\s*=\s*([^(]+)\(/g;
-    let match;
 
-    while ((match = functionCallRegex.exec(pseudocode)) !== null) {
-      const functionName = match[2].trim();
-      componentTypes[functionName] = (componentTypes[functionName] || 0) + 1;
+    for (const line of lines) {
+      // Try new Enhanced Pipe-Delimited format first
+      const parsed = parseEnhancedPipeDelimitedLine(line);
+      if (parsed) {
+        const compName = parsed.componentName;
+        componentTypes[compName] = (componentTypes[compName] || 0) + 1;
+      } else {
+        // Fallback to old format
+        const match = line.match(/(\w+):\s*[\w\[\],]+\s*=\s*([^(]+)\(/);
+        if (match) {
+          const functionName = match[2].trim();
+          componentTypes[functionName] = (componentTypes[functionName] || 0) + 1;
+        }
+      }
     }
 
     // Count sections
@@ -235,27 +337,24 @@ export async function findComponents(args = {}) {
     const pseudocode = await cache.getCanvas();
 
     const lines = pseudocode.split('\n');
-    const componentLines = lines.filter(line => line.includes(':') && line.includes('='));
-
     let results = [];
 
-    for (const line of componentLines) {
-      // Extract component info from pseudocode line
-      const match = line.match(/(\w+_[a-f0-9]+):\s*([\w\[\],]+)\s*=\s*([^(]+)\(/);
-      if (match) {
-        const [, variableName, typeName, functionName] = match;
+    for (const line of lines) {
+      // Try to parse with the new Enhanced Pipe-Delimited format
+      const parsed = parseEnhancedPipeDelimitedLine(line);
 
+      if (parsed) {
         let include = true;
 
-        // Filter by name (check variable name and function name)
+        // Filter by name (check variable name and component name)
         if (name) {
           const regex = new RegExp(name, 'i');
-          include = include && (regex.test(variableName) || regex.test(functionName));
+          include = include && (regex.test(parsed.variable) || regex.test(parsed.componentName));
         }
 
         // Filter by type
         if (type) {
-          include = include && functionName.toLowerCase().includes(type.toLowerCase());
+          include = include && parsed.componentType.toLowerCase().includes(type.toLowerCase());
         }
 
         // Note: Error filtering not available in pseudocode format
@@ -265,11 +364,47 @@ export async function findComponents(args = {}) {
 
         if (include) {
           results.push({
-            variableName,
-            typeName,
-            functionName,
-            pseudocodeLine: line.trim()
+            variable: parsed.variable,
+            componentType: parsed.componentType,
+            componentName: parsed.componentName,
+            compUuid: parsed.compUuid,
+            position: parsed.position,
+            inputs: parsed.inputs,
+            outputs: parsed.outputs,
+            pseudocodeLine: line.trim(),
+            // Legacy fields for backwards compatibility
+            variableName: parsed.variable,
+            typeName: parsed.componentType,
+            functionName: parsed.componentName
           });
+        }
+      } else {
+        // Fallback to old format parsing for backwards compatibility
+        const match = line.match(/(\w+_[a-f0-9]+):\s*([\w\[\],]+)\s*=\s*([^(]+)\(/);
+        if (match) {
+          const [, variableName, typeName, functionName] = match;
+
+          let include = true;
+
+          // Filter by name (check variable name and function name)
+          if (name) {
+            const regex = new RegExp(name, 'i');
+            include = include && (regex.test(variableName) || regex.test(functionName));
+          }
+
+          // Filter by type
+          if (type) {
+            include = include && functionName.toLowerCase().includes(type.toLowerCase());
+          }
+
+          if (include) {
+            results.push({
+              variableName,
+              typeName,
+              functionName,
+              pseudocodeLine: line.trim()
+            });
+          }
         }
       }
     }
@@ -332,17 +467,35 @@ export async function analyzePseudocode(args = {}) {
       headerInfo: headerLine
     };
 
-    // Extract component references for analysis
-    const componentPattern = /(\w+_[a-f0-9]+):/g;
+    // Extract component references for analysis using both new and old formats
     const componentReferences = [];
-    let match;
 
-    while ((match = componentPattern.exec(pseudocode)) !== null) {
-      componentReferences.push(match[1]);
+    for (const line of lines) {
+      // Try new Enhanced Pipe-Delimited format first
+      const parsed = parseEnhancedPipeDelimitedLine(line);
+      if (parsed) {
+        componentReferences.push({
+          variable: parsed.variable,
+          uuid: parsed.compUuid,
+          type: parsed.componentType,
+          name: parsed.componentName,
+          format: 'enhanced'
+        });
+      } else {
+        // Fallback to old format
+        const match = line.match(/(\w+_[a-f0-9]+):/);
+        if (match) {
+          componentReferences.push({
+            variable: match[1],
+            format: 'legacy'
+          });
+        }
+      }
     }
 
-    analysis.componentReferences = componentReferences;
-    analysis.uniqueComponents = [...new Set(componentReferences)].length;
+    analysis.componentReferences = componentReferences.map(ref => ref.variable); // For backwards compatibility
+    analysis.componentDetails = componentReferences;
+    analysis.uniqueComponents = [...new Set(componentReferences.map(ref => ref.variable))].length;
 
     return analysis;
   } catch (error) {

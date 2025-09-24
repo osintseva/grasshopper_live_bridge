@@ -339,6 +339,17 @@ namespace LiveCoding
                         comp.Description = ghComponent.Description;
                         comp.IsComponent = true;
 
+                        // Get component position
+                        if (ghComponent.Attributes != null)
+                        {
+                            comp.X = ghComponent.Attributes.Pivot.X;
+                            comp.Y = ghComponent.Attributes.Pivot.Y;
+                        }
+
+                        // Determine component type from primary output or component name
+                        var mainOutput = ghComponent.Params.Output.FirstOrDefault();
+                        comp.ComponentType = mainOutput?.TypeName ?? "Object";
+
                         // Parse inputs
                         foreach (var inputParam in ghComponent.Params.Input)
                         {
@@ -352,7 +363,14 @@ namespace LiveCoding
                                     if (sourceParamIndex > -1) connections.Add(new int[] { sourceId, sourceParamIndex });
                                 }
                             }
-                            comp.Inputs.Add(new PseudocodeInput { Name = inputParam.Name, TypeName = inputParam.TypeName, Connections = connections });
+                            comp.Inputs.Add(new PseudocodeInput {
+                                Name = inputParam.Name,
+                                TypeName = inputParam.TypeName,
+                                Connections = connections,
+                                ParameterUuid = inputParam.InstanceGuid,
+                                HasConnections = inputParam.Sources.Count > 0,
+                                IsOptional = inputParam.Optional
+                            });
                         }
 
                         // Parse outputs
@@ -360,7 +378,13 @@ namespace LiveCoding
                             var data = p.VolatileData.AllData(true);
                             var dataPreview = data.Any() ? string.Join(", ", data.Select(GetCompactDataPreview)) : "null";
 
-                            return new PseudocodeOutput { Name = p.Name, TypeName = p.TypeName, DataPreview = dataPreview, HasRecipients = p.Recipients.Count > 0 };
+                            return new PseudocodeOutput {
+                                Name = p.Name,
+                                TypeName = p.TypeName,
+                                DataPreview = dataPreview,
+                                HasRecipients = p.Recipients.Count > 0,
+                                ParameterUuid = p.InstanceGuid
+                            };
                         }).ToList();
                     }
                     else if (obj is IGH_Param ghParam)
@@ -370,10 +394,26 @@ namespace LiveCoding
                         comp.Description = ghParam.Description;
                         comp.IsComponent = false;
 
+                        // Get parameter position
+                        if (ghParam.Attributes != null)
+                        {
+                            comp.X = ghParam.Attributes.Pivot.X;
+                            comp.Y = ghParam.Attributes.Pivot.Y;
+                        }
+
+                        // Component type is the parameter type
+                        comp.ComponentType = ghParam.TypeName;
+
                         var data = ghParam.VolatileData.AllData(true);
                         var dataPreview = data.Any() ? string.Join(", ", data.Select(GetCompactDataPreview)) : "null";
 
-                        comp.Outputs.Add(new PseudocodeOutput { Name = ghParam.Name, TypeName = ghParam.TypeName, DataPreview = dataPreview, HasRecipients = ghParam.Recipients.Count > 0 });
+                        comp.Outputs.Add(new PseudocodeOutput {
+                            Name = ghParam.Name,
+                            TypeName = ghParam.TypeName,
+                            DataPreview = dataPreview,
+                            HasRecipients = ghParam.Recipients.Count > 0,
+                            ParameterUuid = ghParam.InstanceGuid
+                        });
 
                         if (ghParam.Sources.Any())
                         {
@@ -387,7 +427,14 @@ namespace LiveCoding
                                     if (sourceParamIndex > -1) connections.Add(new int[] { sourceId, sourceParamIndex });
                                 }
                             }
-                            comp.Inputs.Add(new PseudocodeInput { Name = "Input", TypeName = ghParam.TypeName, Connections = connections });
+                            comp.Inputs.Add(new PseudocodeInput {
+                                Name = "Input",
+                                TypeName = ghParam.TypeName,
+                                Connections = connections,
+                                ParameterUuid = ghParam.InstanceGuid,
+                                HasConnections = ghParam.Sources.Count > 0,
+                                IsOptional = false // Parameters typically aren't optional
+                            });
                         }
                     }
 
@@ -403,11 +450,11 @@ namespace LiveCoding
                 // Sort components topologically
                 var sortedComponents = TopologicalSort(components);
 
-                // Generate pseudocode
+                // Generate Enhanced Pipe-Delimited with Types pseudocode
                 var output = new StringBuilder();
 
                 // Header
-                output.AppendLine("# === GRASSHOPPER DEFINITION PSEUDOCODE ===");
+                output.AppendLine("# === GRASSHOPPER DEFINITION PSEUDOCODE (Enhanced Pipe-Delimited with Types) ===");
                 output.AppendLine($"# Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
 
                 var sourceCount = sortedComponents.Count(c => !c.Inputs.Any());
@@ -415,102 +462,54 @@ namespace LiveCoding
                 var totalConnections = sortedComponents.Sum(c => c.Inputs.Sum(i => i.Connections.Count));
 
                 output.AppendLine($"# Components: {sortedComponents.Count} | Connections: {totalConnections} | Sources: {sourceCount} | Sinks: {sinkCount}");
+                output.AppendLine($"# Format: variable|x,y|comp_uuid: ComponentType = \"Component Name\" | [\"Input Name\"(InputType):param_uuid] | [\"Output Name\"(OutputType):param_uuid]");
                 output.AppendLine();
 
-                // Source components (no inputs)
-                var sources = sortedComponents.Where(c => !c.Inputs.Any()).ToList();
-                if (sources.Any())
+                // Generate all components in the new pipe-delimited format
+                foreach (var comp in sortedComponents)
                 {
-                    output.AppendLine("# === SOURCE DATA (No inputs) ===");
-                    foreach (var comp in sources)
+                    // Format: variable|x,y|comp_uuid: ComponentType = "Component Name" | ["Input Name"(InputType):param_uuid, "_Unused Input"(Type):param_uuid] | ["Output Name"(OutputType):param_uuid]
+
+                    var position = $"{(int)comp.X},{(int)comp.Y}";
+                    var compUuid = comp.Guid.ToString("N").Substring(0, 8);
+                    var componentType = comp.ComponentType ?? "Object";
+                    var componentName = comp.Name ?? comp.NickName ?? "Component";
+
+                    // Build input section
+                    var inputParts = new List<string>();
+                    foreach (var input in comp.Inputs)
                     {
-                        var mainOutput = comp.Outputs.FirstOrDefault();
-                        if (mainOutput != null)
+                        var inputName = input.HasConnections ? input.Name : $"_{input.Name}";
+                        var inputType = input.TypeName ?? "Object";
+                        var paramUuid = input.ParameterUuid.ToString("N").Substring(0, 8);
+                        inputParts.Add($"\"{inputName}\"({inputType}):{paramUuid}");
+                    }
+                    var inputSection = inputParts.Any() ? $"[{string.Join(", ", inputParts)}]" : "[]";
+
+                    // Build output section
+                    var outputParts = new List<string>();
+                    foreach (var outputParam in comp.Outputs)
+                    {
+                        var outputType = outputParam.TypeName ?? "Object";
+                        var paramUuid = outputParam.ParameterUuid.ToString("N").Substring(0, 8);
+                        outputParts.Add($"\"{outputParam.Name}\"({outputType}):{paramUuid}");
+                    }
+                    var outputSection = outputParts.Any() ? $"[{string.Join(", ", outputParts)}]" : "[]";
+
+                    // Generate the complete line
+                    var line = $"{comp.VariableName}|{position}|{compUuid}: {componentType} = \"{componentName}\" | {inputSection} | {outputSection}";
+
+                    // Add data preview as comment if enabled
+                    if (INCLUDE_DATA_PREVIEWS && comp.Outputs.Any())
+                    {
+                        var previewData = comp.Outputs.Where(o => !string.IsNullOrEmpty(o.DataPreview) && o.DataPreview != "null").Select(o => o.DataPreview).FirstOrDefault();
+                        if (!string.IsNullOrEmpty(previewData))
                         {
-                            string typeName = mainOutput.TypeName ?? "Object";
-                            string preview = INCLUDE_DATA_PREVIEWS ? $"  # {mainOutput.DataPreview}" : "";
-                            output.AppendLine($"{comp.VariableName}: {typeName} = {comp.Name ?? "Component"}(){preview}");
+                            line += $"  # {previewData}";
                         }
                     }
-                    output.AppendLine();
-                }
 
-                // Main processing chain (components with inputs and outputs)
-                var processors = sortedComponents.Where(c => c.Inputs.Any() && c.Outputs.Any(o => o.HasRecipients)).ToList();
-                if (processors.Any())
-                {
-                    output.AppendLine("# === MAIN PROCESSING CHAIN ===");
-                    foreach (var comp in processors)
-                    {
-                        var mainOutput = comp.Outputs.FirstOrDefault();
-                        if (mainOutput != null)
-                        {
-                            string typeName = mainOutput.TypeName ?? "Object";
-                            if (comp.Outputs.Count > 1)
-                                typeName = $"Tuple[{string.Join(", ", comp.Outputs.Select(o => o.TypeName ?? "Object"))}]";
-
-                            // Generate function call
-                            var functionName = comp.Name ?? "Process";
-                            var args = new List<string>();
-
-                            foreach (var input in comp.Inputs)
-                            {
-                                foreach (var connection in input.Connections)
-                                {
-                                    var sourceComp = sortedComponents.FirstOrDefault(c => c.Id == connection[0]);
-                                    if (sourceComp != null)
-                                    {
-                                        args.Add(sourceComp.VariableName);
-                                    }
-                                }
-                            }
-
-                            if (comp.Outputs.Count == 1)
-                            {
-                                string preview = INCLUDE_DATA_PREVIEWS ? $"  # {mainOutput.DataPreview}" : "";
-                                output.AppendLine($"{comp.VariableName}: {typeName} = {functionName}({string.Join(", ", args)}){preview}");
-                            }
-                            else
-                            {
-                                // Multiple outputs
-                                var outputNames = string.Join(", ", comp.Outputs.Select(o => $"{comp.VariableName}_{o.Name?.ToLower() ?? "out"}"));
-                                output.AppendLine($"{outputNames}: {typeName} = {functionName}({string.Join(", ", args)})");
-                            }
-                        }
-                    }
-                    output.AppendLine();
-                }
-
-                // Disconnected/Display components (sinks)
-                var sinks = sortedComponents.Where(c => c.Outputs.Any() && !c.Outputs.Any(o => o.HasRecipients) && c.Inputs.Any()).ToList();
-                if (sinks.Any())
-                {
-                    output.AppendLine("# === DISCONNECTED/DISPLAY COMPONENTS ===");
-                    foreach (var comp in sinks)
-                    {
-                        var mainOutput = comp.Outputs.FirstOrDefault();
-                        if (mainOutput != null)
-                        {
-                            string typeName = mainOutput.TypeName ?? "Object";
-                            var functionName = comp.Name ?? "Display";
-                            var args = new List<string>();
-
-                            foreach (var input in comp.Inputs)
-                            {
-                                foreach (var connection in input.Connections)
-                                {
-                                    var sourceComp = sortedComponents.FirstOrDefault(c => c.Id == connection[0]);
-                                    if (sourceComp != null)
-                                    {
-                                        args.Add(sourceComp.VariableName);
-                                    }
-                                }
-                            }
-
-                            string preview = INCLUDE_DATA_PREVIEWS ? $"  # {mainOutput.DataPreview}" : "";
-                            output.AppendLine($"{comp.VariableName}: {typeName} = {functionName}({string.Join(", ", args)}){preview}");
-                        }
-                    }
+                    output.AppendLine(line);
                 }
 
                 string pseudocodeResult = output.ToString();
@@ -1781,6 +1780,9 @@ second_output = result_second");
         public string VariableName { get; set; }
         public string FullUuidString { get; set; }  // Store full UUID for connections
         public string ShortUuidString { get; set; } // Store short UUID for display
+        public float X { get; set; } // Component X position on canvas
+        public float Y { get; set; } // Component Y position on canvas
+        public string ComponentType { get; set; } // Type of component (e.g., Geometry, Curve, etc.)
         public List<PseudocodeInput> Inputs { get; set; } = new List<PseudocodeInput>();
         public List<PseudocodeOutput> Outputs { get; set; } = new List<PseudocodeOutput>();
     }
@@ -1790,6 +1792,9 @@ second_output = result_second");
         public string Name { get; set; }
         public string TypeName { get; set; }
         public List<int[]> Connections { get; set; } = new List<int[]>();
+        public Guid ParameterUuid { get; set; } // Unique identifier for this parameter
+        public bool IsOptional { get; set; } // Whether this parameter is optional/unused
+        public bool HasConnections { get; set; } // Whether this input has any connections
     }
 
     public class PseudocodeOutput
@@ -1798,5 +1803,6 @@ second_output = result_second");
         public string TypeName { get; set; }
         public string DataPreview { get; set; }
         public bool HasRecipients { get; set; }
+        public Guid ParameterUuid { get; set; } // Unique identifier for this parameter
     }
 }
