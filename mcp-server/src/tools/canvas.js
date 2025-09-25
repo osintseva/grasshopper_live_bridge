@@ -15,15 +15,19 @@ const store = getStore();
  * Parse a line in the new Enhanced Pipe-Delimited with Types format
  * Format: variable|x,y|comp_uuid: ComponentType = "Component Name" | ["Input Name"(InputType):param_uuid] | ["Output Name"(OutputType):param_uuid]
  */
-function parseEnhancedPipeDelimitedLine(line) {
+export function parseEnhancedPipeDelimitedLine(line) {
   // Skip comments and empty lines
   if (line.trim().startsWith('#') || line.trim() === '') {
     return null;
   }
 
+  // Clean line endings (Windows \r\n and Unix \n)
+  const cleanLine = line.replace(/\r?\n$/, '').trim();
+
   // Match the enhanced pipe-delimited format with more flexible bracket handling
   // We need to handle nested brackets in type names like List[Curve]
-  const match = line.match(/^(\w+)\|(\d+,\d+)\|(\w+):\s*(.+?)\s*=\s*"([^"]+)"\s*\|\s*(\[.*?\])\s*\|\s*(\[.*?\])(?:\s*#\s*(.+))?$/);
+  // Fixed regex to handle negative coordinates: -?\d+ instead of \d+
+  const match = cleanLine.match(/^(\w+)\|(-?\d+,-?\d+)\|(\w+):\s*(.+?)\s*=\s*"([^"]+)"\s*\|\s*(\[.*?\])\s*\|\s*(\[.*?\])(?:\s*#\s*(.+))?$/);
 
   if (!match) {
     return null;
@@ -56,7 +60,7 @@ function parseEnhancedPipeDelimitedLine(line) {
 /**
  * Parse a parameter section like ["Input Name"(InputType):param_uuid, "_Unused Input"(Type):param_uuid]
  */
-function parseParameterSection(section) {
+export function parseParameterSection(section) {
   if (!section || section === '[]') {
     return [];
   }
@@ -114,27 +118,80 @@ export async function getSelection(args = {}) {
 
   try {
     const cache = getCanvasCache();
-    const selection = await cache.getSelection(forceRefresh);
+    const selectionResponse = await cache.getSelection(forceRefresh);
 
-    // Get pseudocode for context
+    // Get pseudocode only for parsing selected components (not for return)
     const pseudocode = await cache.getCanvas();
 
-    // Extract component info for selected items from pseudocode
+    // Parse selected components with detailed information
     const selectedComponents = [];
+    let inputsConnected = 0;
+    let outputsConnected = 0;
+
+    // Extract the actual selection array from the response data
+    const selection = selectionResponse?.selectedIds || selectionResponse?.data?.selectedIds || selectionResponse;
+    const selectionCount = selectionResponse?.count || (Array.isArray(selection) ? selection.length : 0);
+
     if (selection && Array.isArray(selection)) {
+      // Split pseudocode into lines for parsing
+      const lines = pseudocode.split(/\r?\n/);
+
       for (const selectedId of selection) {
-        const componentInfo = await cache.getComponentInfo(selectedId);
-        if (componentInfo) {
-          selectedComponents.push(componentInfo);
+        // Find component in pseudocode
+        const fullUuidNoHyphens = selectedId.replace(/-/g, '');
+        const shortUuid = fullUuidNoHyphens.substring(0, 8);
+
+        let componentLine = null;
+        let parsedComponent = null;
+
+        // Find the component using the new format
+        for (const line of lines) {
+          const parsed = parseEnhancedPipeDelimitedLine(line);
+          if (parsed && (parsed.compUuid === shortUuid || parsed.compUuid === fullUuidNoHyphens)) {
+            componentLine = line;
+            parsedComponent = parsed;
+            break;
+          }
+        }
+
+        if (parsedComponent) {
+          // Count connections (simplified heuristic - connected if name doesn't start with _)
+          const connectedInputs = parsedComponent.inputs.filter(inp => !inp.isUnused).length;
+          const connectedOutputs = parsedComponent.outputs.filter(out => !out.isUnused).length;
+
+          inputsConnected += connectedInputs;
+          outputsConnected += connectedOutputs;
+
+          selectedComponents.push({
+            uuid: parsedComponent.compUuid,
+            variable: parsedComponent.variable,
+            type: parsedComponent.componentType,
+            name: parsedComponent.componentName,
+            position: parsedComponent.position,
+            inputs: parsedComponent.inputs,
+            outputs: parsedComponent.outputs,
+            pseudocodeLine: componentLine.trim(),
+            hasErrors: false, // TODO: Add error detection if available
+            dataPreview: parsedComponent.dataPreview
+          });
+        } else {
+          // Fallback for components not found in new format
+          logger.warn(`Component ${selectedId} not found in pseudocode format`);
         }
       }
     }
 
     return {
-      selectedIds: selection || [],
+      selectionSummary: {
+        count: selectionCount,
+        timestamp: new Date().toISOString()
+      },
       selectedComponents,
-      count: (selection || []).length,
-      pseudocodeContext: pseudocode
+      connectionSummary: {
+        totalConnections: inputsConnected + outputsConnected,
+        inputsConnected,
+        outputsConnected
+      }
     };
   } catch (error) {
     logger.error('Failed to get selection', error);
@@ -165,7 +222,8 @@ export async function queryCanvasPseudocode(args = {}) {
 
     // Apply text-based query using regex or string search
     let result = [];
-    const lines = pseudocode.split('\n');
+    // Split by both Unix (\n) and Windows (\r\n) line endings
+    const lines = pseudocode.split(/\r?\n/);
 
     if (query.startsWith('/') && query.endsWith('/')) {
       // Regex query
@@ -220,7 +278,8 @@ export async function getComponentInfo(args = {}) {
 
     // Find the component's line in pseudocode for more details
     // Try to parse with the new Enhanced Pipe-Delimited format first
-    const lines = pseudocode.split('\n');
+    // Split by both Unix (\n) and Windows (\r\n) line endings
+    const lines = pseudocode.split(/\r?\n/);
     const fullUuidNoHyphens = componentUuid.replace(/-/g, '');
     const shortUuid = fullUuidNoHyphens.substring(0, 8);
 
@@ -250,8 +309,7 @@ export async function getComponentInfo(args = {}) {
       component,
       componentUuid,
       pseudocodeLine: componentLine,
-      parsedComponent,
-      pseudocodeContext: pseudocode
+      parsedComponent
     };
   } catch (error) {
     logger.error('Failed to get component info', error);
@@ -261,7 +319,7 @@ export async function getComponentInfo(args = {}) {
 
 
 export async function findComponents(args = {}) {
-  const { name, type, hasErrors = null } = args;
+  const { name, type, hasErrors = null, limit = 50, offset = 0 } = args;
 
   logger.toolCall('findComponents', args);
 
@@ -269,7 +327,8 @@ export async function findComponents(args = {}) {
     const cache = getCanvasCache();
     const pseudocode = await cache.getCanvas();
 
-    const lines = pseudocode.split('\n');
+    // Split by both Unix (\n) and Windows (\r\n) line endings
+    const lines = pseudocode.split(/\r?\n/);
     let results = [];
 
     for (const line of lines) {
@@ -342,12 +401,32 @@ export async function findComponents(args = {}) {
       }
     }
 
-    return {
-      found: results.length,
-      components: results,
+    // Apply pagination
+    const totalCount = results.length;
+    const paginatedResults = results.slice(offset, offset + limit);
+    const hasMore = offset + limit < totalCount;
+
+    // Create response with pagination info
+    const response = {
+      found: totalCount,
+      returned: paginatedResults.length,
+      components: paginatedResults,
+      pagination: {
+        limit,
+        offset,
+        hasMore,
+        nextOffset: hasMore ? offset + limit : null
+      },
       query: { name, type, hasErrors },
       note: hasErrors !== null ? 'Error filtering not available in pseudocode format' : null
     };
+
+    // Add warning for large result sets
+    if (totalCount > 100) {
+      response.warning = `Large result set (${totalCount} components). Use pagination with limit/offset parameters to browse all results.`;
+    }
+
+    return response;
   } catch (error) {
     logger.error('Failed to find components', error);
     throw error;
@@ -377,7 +456,8 @@ export async function createScriptComponent(args = {}) {
 
       const cache = getCanvasCache();
       const pseudocode = await cache.getCanvas();
-      const lines = pseudocode.split('\n');
+      // Split by both Unix (\n) and Windows (\r\n) line endings
+    const lines = pseudocode.split(/\r?\n/);
 
       for (const connection of connections) {
         const { sourceId, sourceOutput = 0, targetInput = 0 } = connection;

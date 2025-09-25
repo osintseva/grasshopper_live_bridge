@@ -81,22 +81,33 @@ export class CanvasCache {
     // Get full canvas pseudocode and search for component by UUID
     const pseudocode = await this.getCanvas();
 
-    // Extract component info from pseudocode using regex
-    // Look for variable names that contain the first 8 chars of UUID
-    const shortUuid = componentUuid.replace(/-/g, '').substring(0, 8);
-    const regex = new RegExp(`(\\w+_${shortUuid}):\\s*([\\w\\[\\],]+)\\s*=\\s*([^\\(]+)\\([^\\)]*\\)`, 'g');
+    // Import the parsing function from canvas.js
+    const { parseEnhancedPipeDelimitedLine } = await import('../tools/canvas.js');
 
-    let match;
-    while ((match = regex.exec(pseudocode)) !== null) {
-      const component = {
-        InstanceGuid: componentUuid,
-        VariableName: match[1],
-        TypeName: match[2],
-        Name: match[3]
-      };
+    // Look for component using the new Enhanced Pipe-Delimited format
+    const fullUuidNoHyphens = componentUuid.replace(/-/g, '');
+    const shortUuid = fullUuidNoHyphens.substring(0, 8);
 
-      this.store.setCache(cacheKey, component, this.ttlMs);
-      return component;
+    // Split by both Unix (\n) and Windows (\r\n) line endings
+    const lines = pseudocode.split(/\r?\n/);
+
+    for (const line of lines) {
+      const parsed = parseEnhancedPipeDelimitedLine(line);
+      if (parsed && (parsed.compUuid === shortUuid || parsed.compUuid === fullUuidNoHyphens)) {
+        const component = {
+          InstanceGuid: componentUuid,
+          VariableName: parsed.variable,
+          TypeName: parsed.componentType,
+          Name: parsed.componentName,
+          Position: parsed.position,
+          Inputs: parsed.inputs,
+          Outputs: parsed.outputs,
+          PseudocodeLine: line.trim()
+        };
+
+        this.store.setCache(cacheKey, component, this.ttlMs);
+        return component;
+      }
     }
 
     return null;

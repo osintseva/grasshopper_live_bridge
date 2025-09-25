@@ -129,6 +129,16 @@ export function createMcpServer(config = {}) {
               hasErrors: {
                 type: "boolean",
                 description: "Filter by error status"
+              },
+              limit: {
+                type: "number",
+                description: "Maximum number of results to return",
+                default: 50
+              },
+              offset: {
+                type: "number",
+                description: "Number of results to skip (for pagination)",
+                default: 0
               }
             },
             additionalProperties: false,

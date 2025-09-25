@@ -178,6 +178,10 @@ namespace LiveCoding
                         GetCanvasInfo(doc, cmd.CorrelationId);
                         break;
 
+                    case "get_selection":
+                        GetSelection(doc, cmd.CorrelationId);
+                        break;
+
                     default:
                         AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Unknown action: {cmd.Action}");
                         SendErrorResponse(cmd.Action, cmd.CorrelationId, $"Unknown action: {cmd.Action}");
@@ -724,6 +728,58 @@ namespace LiveCoding
             }
 
             return sorted;
+        }
+
+        private void GetSelection(GH_Document doc, string correlationId = null)
+        {
+            try
+            {
+                LogDebug($"GetSelection started. Doc null? {doc == null}");
+                if (doc == null)
+                {
+                    LogDebug("No active Grasshopper document found");
+                    SendErrorResponse("get_selection", correlationId, "No active Grasshopper document");
+                    return;
+                }
+
+                // Get selected objects from the document
+                var selectedObjects = new List<string>();
+
+                // Grasshopper selection is available through the canvas
+                var canvas = Grasshopper.Instances.ActiveCanvas;
+                if (canvas != null && canvas.Document == doc)
+                {
+                    // Get selected objects from document
+                    var docSelectedObjects = doc.SelectedObjects();
+                    foreach (var selectedObj in docSelectedObjects)
+                    {
+                        if (selectedObj is IGH_DocumentObject docObj)
+                        {
+                            // Use short UUID format (first 8 characters) to match pseudocode format
+                            var shortUuid = docObj.InstanceGuid.ToString().Replace("-", "").Substring(0, 8);
+                            selectedObjects.Add(shortUuid);
+                        }
+                    }
+                }
+
+                LogDebug($"Found {selectedObjects.Count} selected objects");
+
+                // Send response with selected object UUIDs
+                var responseData = new Dictionary<string, object>
+                {
+                    ["selectedIds"] = selectedObjects,
+                    ["count"] = selectedObjects.Count,
+                    ["timestamp"] = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+                };
+
+                SendSuccessResponseWithData("get_selection", correlationId,
+                    $"Found {selectedObjects.Count} selected objects", responseData);
+            }
+            catch (Exception ex)
+            {
+                LogDebug($"GetSelection error: {ex.Message}");
+                SendErrorResponse("get_selection", correlationId, $"Failed to get selection: {ex.Message}");
+            }
         }
 
         private void BroadcastCanvasInfo(string pseudocodeData, string correlationId)
