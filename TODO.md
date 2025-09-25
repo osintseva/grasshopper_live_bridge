@@ -84,37 +84,15 @@ explode_curve|150,300|i9j0k1l2: List[Curve] = "Explode" | ["Curve"(Curve):input1
 
 
 ### [ ] Complete Input/Output Notation Enhancement
-**Goal:** Include all inputs and outputs in component notation, even if unused, to help Claude understand component capabilities.
+**Goal:** Include all inputs and outputs in component notation, not only used ones, to help Claude understand component capabilities.
 
 **What's needed:**
 - Modify pseudocode generation to show all parameters, marking unused ones with "_" or special notation
 - Include input/output UUIDs for precise wire management
 - Ensure Claude can understand component I/O capabilities even when not all are used
 
-**Current State Analysis:**
-- Current pseudocode only shows connected inputs/used outputs
-- Need to show full component interface regardless of usage
-- Input/output parameter details available in `PseudocodeInput` and `PseudocodeOutput` classes
-
-**Enhanced Format Examples:**
-```
-# Full notation showing all inputs/outputs
-component_name_uuid: OutputType = ComponentFunction(
-  input1=connection_source,
-  input2=_,           # unused input
-  input3=another_source
-) -> [output1, output2=_, output3]  # output2 unused
-```
-
-**Implementation Plan:**
-- Modify `GetCanvasInfo()` in LiveCodingComponent.cs to include all parameters
-- Add parameter UUID tracking to `PseudocodeInput` and `PseudocodeOutput`
-- Update pseudocode generation logic to show unused parameters with "_" notation
-- Ensure MCP tools can parse and understand the enhanced notation
-
-
 ### [ ] Wire Connection/Disconnection MCP Tool
-**Goal:** Create an MCP tool to connect or disconnect wires between components in Grasshopper.
+**Goal:** Create a separate MCP tool to connect or disconnect wires between components in Grasshopper.
 
 **What it does:**
 - Connect/disconnect wires between specific component input/output UUIDs
