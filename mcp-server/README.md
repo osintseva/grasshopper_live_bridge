@@ -112,15 +112,13 @@ The bridge runs as a hybrid server providing:
 - **WebSocket Client** connecting to Grasshopper plugin at `ws://localhost:8181/live`
 
 ### Available Tools
-The bridge provides 7 focused MCP tools for AI interaction:
+The bridge provides 5 focused MCP tools for AI interaction:
 
-**Canvas Analysis (7 tools)**
+**Canvas Analysis (5 tools)**
 - `get_canvas_state` - Get complete canvas pseudocode
 - `get_selection` - Get currently selected components
 - `query_canvas_pseudocode` - Search canvas with text/regex
-- `analyze_pseudocode` - Prepare canvas for technical analysis
 - `get_component_info` - Get details about specific components
-- `get_canvas_statistics` - Get canvas metrics and statistics
 - `find_components` - Search components by name/type
 
 ### HTTP API Endpoints
@@ -129,7 +127,6 @@ For developers building extensions:
 - `GET /api/canvas` - Get canvas state
 - `GET /api/selection` - Get current selection
 - `POST /api/canvas/query` - Query canvas data
-- `GET /api/canvas/statistics` - Get canvas statistics
 - `GET /api/components/:uuid` - Get component details
 - `GET /api/events` - Get event log
 - `GET /api/snapshots` - Get canvas history

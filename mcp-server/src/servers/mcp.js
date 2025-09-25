@@ -98,21 +98,6 @@ export function createMcpServer(config = {}) {
           },
         },
         {
-          name: "analyze_pseudocode",
-          description: "Analyze the canvas pseudocode and prepare it for technical specification generation",
-          inputSchema: {
-            type: "object",
-            properties: {
-              includePrompt: {
-                type: "boolean",
-                description: "Include the analysis prompt in the response",
-                default: false
-              }
-            },
-            additionalProperties: false,
-          },
-        },
-        {
           name: "get_component_info",
           description: "Get detailed information about a specific component",
           inputSchema: {
@@ -124,15 +109,6 @@ export function createMcpServer(config = {}) {
               }
             },
             required: ["componentUuid"],
-            additionalProperties: false,
-          },
-        },
-        {
-          name: "get_canvas_statistics",
-          description: "Get statistics about the current canvas",
-          inputSchema: {
-            type: "object",
-            properties: {},
             additionalProperties: false,
           },
         },
@@ -285,17 +261,11 @@ export function createMcpServer(config = {}) {
           result = await canvasTools.queryCanvasPseudocode(args || {});
           break;
 
-        case "analyze_pseudocode":
-          result = await canvasTools.analyzePseudocode(args || {});
-          break;
         
         case "get_component_info":
           result = await canvasTools.getComponentInfo(args || {});
           break;
         
-        case "get_canvas_statistics":
-          result = await canvasTools.getCanvasStatistics(args || {});
-          break;
         
         case "find_components":
           result = await canvasTools.findComponents(args || {});

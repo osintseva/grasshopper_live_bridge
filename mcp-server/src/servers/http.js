@@ -114,23 +114,6 @@ export function createHttpServer(config = {}) {
     }
   });
   
-  app.get('/api/canvas/statistics', async (req, res) => {
-    try {
-      const stats = await canvasTools.getCanvasStatistics();
-      
-      res.json({
-        status: 'success',
-        data: stats
-      });
-    } catch (error) {
-      logger.error('HTTP: Failed to get canvas statistics', error);
-      res.status(500).json({
-        status: 'error',
-        message: error.message
-      });
-    }
-  });
-  
   app.get('/api/components/:uuid', async (req, res) => {
     try {
       const componentUuid = req.params.uuid;
