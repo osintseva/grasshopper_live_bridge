@@ -99,19 +99,28 @@ explode_curve|150,300|i9j0k1l2: List[Curve] = "Explode" | ["Curve"(Curve):input1
 - Updated code comments to reflect current format
 - MCP parsing maintains `isUnused` flag for backward compatibility (always false now)
 
-### [ ] Wire Connection/Disconnection MCP Tool
-**Goal:** Create a separate MCP tool to connect or disconnect wires between components in Grasshopper.
+### [✅] Wire Connection/Disconnection MCP Tool
+**Goal:** Create a separate MCP tool to connect or disconnect wires between components in Grasshopper. ✅ **COMPLETED**
 
-**What it does:**
-- Connect/disconnect wires between specific component input/output UUIDs
-- Support partial specification (remove all wires from a specific input/output)
-- Toggle between add/remove wire operations
-- Validate component existence before wire operations
+**Implementation:**
+- ✅ **MCP Tool:** `manage_wire_connections`
+- ✅ **C# Endpoint:** `manage_wires` with three helper methods
+  - `ConnectWire` - Connects wires using `AddSource()`
+  - `DisconnectWire` - Disconnects wires using `RemoveSource()`
+  - `ExecutePartialOperation` - Bulk operations using `RemoveAllSources()`
+- ✅ **Actions supported:** `connect`, `disconnect`
+- ✅ **UUID validation:** 36-char hyphenated format
+- ✅ **Handles both:** `IGH_Component` and `IGH_Param` objects
+- ✅ **Error reporting:** Returns success/failure counts with detailed errors
+- ✅ **Auto-refresh:** Triggers solution update after wire changes
 
-**Implementation Plan:**
-- **Tool Name:** `mcp__grasshopper-bridge__manage_wire_connections`
-- **New C# Endpoint:** `manage_wires` in LiveCodingComponent.cs
-- **Payload Structure:**
+**Files Modified:**
+- `grasshopper-plugin/LiveCodingGH/LiveCodingComponent.cs` - Added manage_wires endpoint
+- `mcp-server/src/servers/mcp.js` - Added tool schema and case handler
+- `mcp-server/src/tools/canvas.js` - Added manageWireConnections function
+- `CLAUDE.md` - Updated documentation with new action and MCP tool
+
+**Payload Structure:**
 ```json
 {
   "action": "connect|disconnect",
@@ -133,14 +142,6 @@ explode_curve|150,300|i9j0k1l2: List[Curve] = "Explode" | ["Curve"(Curve):input1
   ]
 }
 ```
-
-**Implementation Requirements:**
-- Add to `mcp-server/src/tools/canvas.js`
-- Add corresponding endpoint in `grasshopper-plugin/LiveCodingGH/LiveCodingComponent.cs`
-- Support UUID-based component lookup (full UUIDs only)
-- Validate component and parameter existence before operations
-- Handle both `IGH_Component` and `IGH_Param` objects for wire connections
-- Return success/failure status with detailed error messages
 
 
 

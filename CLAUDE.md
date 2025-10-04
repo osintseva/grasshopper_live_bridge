@@ -50,7 +50,7 @@ AI (Claude Code) ←→ MCP Server (Node.js) ←→ WebSocket (ws://localhost:81
 **1. Grasshopper Plugin (`grasshopper-plugin/LiveCodingGH/LiveCodingComponent.cs`)**
 - WebSocket server on port 8181 at `/live` endpoint
 - Message pump processes commands on UI thread (50ms interval)
-- Supports actions: `ping`, `create_slider`, `create_python_component`, `update_script`, `get_canvas_info`, `get_selection`
+- Supports actions: `ping`, `create_slider`, `create_python_component`, `update_script`, `get_canvas_info`, `get_selection`, `manage_wires`
 - All commands use correlation IDs for async request/response matching
 
 **2. MCP Server (`mcp-server/`)**
@@ -125,13 +125,15 @@ All tools in `mcp-server/src/tools/canvas.js`:
 - `query_canvas_pseudocode` - Text/regex/wildcard search
 - `get_component_info` - Detailed component data by UUID
 - `find_components` - Search by name/type/error status
+- `create_script_component` - Create Python components with custom I/O
+- `manage_wire_connections` - Connect/disconnect wires between components
 
 ## Development Patterns
 
 ### Error Handling
 - Grasshopper plugin logs to Debug Log output (2000 entry limit)
 - MCP server has 3 log levels: quiet, normal, verbose
-- WebSocket messages capped at 100KB (truncated with error if exceeded)
+- WebSocket messages capped at 10MB (truncated with error if exceeded)
 
 ### State Management
 - Canvas cache auto-refreshes every 15 seconds

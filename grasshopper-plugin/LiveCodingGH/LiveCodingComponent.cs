@@ -182,6 +182,10 @@ namespace LiveCoding
                         GetSelection(doc, cmd.CorrelationId);
                         break;
 
+                    case "manage_wires":
+                        ManageWires(doc, payload, cmd.CorrelationId);
+                        break;
+
                     default:
                         AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Unknown action: {cmd.Action}");
                         SendErrorResponse(cmd.Action, cmd.CorrelationId, $"Unknown action: {cmd.Action}");
@@ -1473,6 +1477,176 @@ second_output = result_second");
             }
         }
 
+        // ---------------------- Wire Management (Connect/Disconnect) ----------------------
+
+        private void ManageWires(GH_Document doc, Dictionary<string, object> payload, string correlationId)
+        {
+            try
+            {
+                var action = S(payload.TryGetValue("action", out var act) ? act : null, "connect");
+
+                // Properly deserialize connections array (same pattern as CreatePythonComponent)
+                var connections = payload.TryGetValue("connections", out var connectionsObj) ?
+                    JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(connectionsObj)) ??
+                    new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
+
+                // Properly deserialize partial operations array
+                var partialOps = payload.TryGetValue("partialOperations", out var partialOpsObj) ?
+                    JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(partialOpsObj)) ??
+                    new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
+
+                int successCount = 0;
+                int failureCount = 0;
+                var errors = new List<string>();
+
+                // Handle direct connections/disconnections
+                if (connections.Count > 0)
+                {
+                    foreach (var connDict in connections)
+                    {
+                        var result = action.ToLower() == "connect"
+                            ? ConnectWire(doc, connDict)
+                            : DisconnectWire(doc, connDict);
+
+                        if (result.success) successCount++;
+                        else { failureCount++; errors.Add(result.error); }
+                    }
+                }
+
+                // Handle partial operations (disconnect all from a param)
+                if (partialOps.Count > 0)
+                {
+                    foreach (var opDict in partialOps)
+                    {
+                        var result = ExecutePartialOperation(doc, opDict);
+                        if (result.success) successCount++;
+                        else { failureCount++; errors.Add(result.error); }
+                    }
+                }
+
+                // Trigger solution update
+                doc.NewSolution(false);
+
+                SendSuccessResponseWithData("manage_wires", correlationId, "Wire management completed", new Dictionary<string, object>
+                {
+                    ["successCount"] = successCount,
+                    ["failureCount"] = failureCount,
+                    ["errors"] = errors,
+                    ["action"] = action
+                });
+            }
+            catch (Exception ex)
+            {
+                SendErrorResponse("manage_wires", correlationId, ex.Message);
+            }
+        }
+
+        private (bool success, string error) ConnectWire(GH_Document doc, Dictionary<string, object> connection)
+        {
+            var sourceUuid = S(connection.TryGetValue("sourceComponentUuid", out var src) ? src : null, "");
+            var targetUuid = S(connection.TryGetValue("targetComponentUuid", out var tgt) ? tgt : null, "");
+            var sourceOutputIndex = connection.TryGetValue("sourceOutputIndex", out var sOut) ? Convert.ToInt32(sOut) : 0;
+            var targetInputIndex = connection.TryGetValue("targetInputIndex", out var tIn) ? Convert.ToInt32(tIn) : 0;
+
+            if (!Guid.TryParse(sourceUuid, out var srcGuid) || !Guid.TryParse(targetUuid, out var tgtGuid))
+                return (false, "Invalid UUID format");
+
+            var sourceObj = doc.FindObject(srcGuid, true);
+            var targetObj = doc.FindObject(tgtGuid, true);
+
+            if (sourceObj == null || targetObj == null)
+                return (false, "Component not found");
+
+            // Get source parameter
+            IGH_Param sourceParam = null;
+            if (sourceObj is IGH_Component srcComp && sourceOutputIndex < srcComp.Params.Output.Count)
+                sourceParam = srcComp.Params.Output[sourceOutputIndex];
+            else if (sourceObj is IGH_Param srcParam)
+                sourceParam = srcParam;
+
+            if (sourceParam == null)
+                return (false, "Source parameter not found");
+
+            // Get target parameter
+            IGH_Param targetParam = null;
+            if (targetObj is IGH_Component tgtComp && targetInputIndex < tgtComp.Params.Input.Count)
+                targetParam = tgtComp.Params.Input[targetInputIndex];
+
+            if (targetParam == null)
+                return (false, "Target parameter not found");
+
+            // Make connection
+            targetParam.AddSource(sourceParam);
+            return (true, null);
+        }
+
+        private (bool success, string error) DisconnectWire(GH_Document doc, Dictionary<string, object> connection)
+        {
+            var sourceUuid = S(connection.TryGetValue("sourceComponentUuid", out var src) ? src : null, "");
+            var targetUuid = S(connection.TryGetValue("targetComponentUuid", out var tgt) ? tgt : null, "");
+            var sourceOutputIndex = connection.TryGetValue("sourceOutputIndex", out var sOut) ? Convert.ToInt32(sOut) : 0;
+            var targetInputIndex = connection.TryGetValue("targetInputIndex", out var tIn) ? Convert.ToInt32(tIn) : 0;
+
+            if (!Guid.TryParse(sourceUuid, out var srcGuid) || !Guid.TryParse(targetUuid, out var tgtGuid))
+                return (false, "Invalid UUID format");
+
+            var sourceObj = doc.FindObject(srcGuid, true);
+            var targetObj = doc.FindObject(tgtGuid, true);
+
+            if (sourceObj == null || targetObj == null)
+                return (false, "Component not found");
+
+            IGH_Param sourceParam = null;
+            if (sourceObj is IGH_Component srcComp && sourceOutputIndex < srcComp.Params.Output.Count)
+                sourceParam = srcComp.Params.Output[sourceOutputIndex];
+            else if (sourceObj is IGH_Param srcParam)
+                sourceParam = srcParam;
+
+            if (sourceParam == null)
+                return (false, "Source parameter not found");
+
+            IGH_Param targetParam = null;
+            if (targetObj is IGH_Component tgtComp && targetInputIndex < tgtComp.Params.Input.Count)
+                targetParam = tgtComp.Params.Input[targetInputIndex];
+
+            if (targetParam == null)
+                return (false, "Target parameter not found");
+
+            // Disconnect
+            targetParam.RemoveSource(sourceParam);
+            return (true, null);
+        }
+
+        private (bool success, string error) ExecutePartialOperation(GH_Document doc, Dictionary<string, object> operation)
+        {
+            var componentUuid = S(operation.TryGetValue("componentUuid", out var uuid) ? uuid : null, "");
+            var paramType = S(operation.TryGetValue("parameterType", out var type) ? type : null, "input");
+            var paramIndex = operation.TryGetValue("parameterIndex", out var idx) ? Convert.ToInt32(idx) : 0;
+            var op = S(operation.TryGetValue("operation", out var oper) ? oper : null, "disconnect_all");
+
+            if (!Guid.TryParse(componentUuid, out var guid))
+                return (false, "Invalid UUID format");
+
+            var obj = doc.FindObject(guid, true);
+            if (obj == null)
+                return (false, "Component not found");
+
+            if (obj is IGH_Component comp)
+            {
+                var paramList = paramType.ToLower() == "input" ? comp.Params.Input : comp.Params.Output;
+                if (paramIndex >= paramList.Count)
+                    return (false, "Parameter index out of range");
+
+                if (op == "disconnect_all")
+                {
+                    paramList[paramIndex].RemoveAllSources();
+                    return (true, null);
+                }
+            }
+
+            return (false, "Operation not supported");
+        }
+
         // ---------------------- Update existing component by GUID ----------------------
 
         private void UpdateExistingScript(GH_Document doc, IDictionary<string, object> payload, string correlationId)
@@ -1751,7 +1925,7 @@ second_output = result_second");
                 try
                 {
                     // Check message size and truncate if too large
-                    const int MAX_MESSAGE_SIZE = 100000; // 100KB limit
+                    const int MAX_MESSAGE_SIZE = 10000000; // 10MB limit
                     string messageToSend = message;
 
                     if (message.Length > MAX_MESSAGE_SIZE)

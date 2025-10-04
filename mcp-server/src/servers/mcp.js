@@ -255,6 +255,76 @@ export function createMcpServer(config = {}) {
             additionalProperties: false,
           },
         },
+        {
+          name: "manage_wire_connections",
+          description: "Connect or disconnect wires between Grasshopper components",
+          inputSchema: {
+            type: "object",
+            properties: {
+              action: {
+                type: "string",
+                enum: ["connect", "disconnect"],
+                description: "Wire operation type",
+                default: "connect"
+              },
+              connections: {
+                type: "array",
+                description: "Direct wire connections to create/remove",
+                items: {
+                  type: "object",
+                  properties: {
+                    sourceComponentUuid: {
+                      type: "string",
+                      description: "Source component UUID (36-char hyphenated)"
+                    },
+                    sourceOutputIndex: {
+                      type: "number",
+                      description: "Source output parameter index"
+                    },
+                    targetComponentUuid: {
+                      type: "string",
+                      description: "Target component UUID (36-char hyphenated)"
+                    },
+                    targetInputIndex: {
+                      type: "number",
+                      description: "Target input parameter index"
+                    }
+                  },
+                  required: ["sourceComponentUuid", "sourceOutputIndex", "targetComponentUuid", "targetInputIndex"]
+                }
+              },
+              partialOperations: {
+                type: "array",
+                description: "Operations on specific parameters (e.g., disconnect all)",
+                items: {
+                  type: "object",
+                  properties: {
+                    componentUuid: {
+                      type: "string",
+                      description: "Component UUID"
+                    },
+                    parameterType: {
+                      type: "string",
+                      enum: ["input", "output"],
+                      description: "Parameter type"
+                    },
+                    parameterIndex: {
+                      type: "number",
+                      description: "Parameter index"
+                    },
+                    operation: {
+                      type: "string",
+                      enum: ["disconnect_all"],
+                      description: "Operation to perform"
+                    }
+                  },
+                  required: ["componentUuid", "parameterType", "parameterIndex", "operation"]
+                }
+              }
+            },
+            additionalProperties: false,
+          },
+        },
       ],
     };
   });
@@ -293,6 +363,10 @@ export function createMcpServer(config = {}) {
 
         case "create_script_component":
           result = await canvasTools.createScriptComponent(args || {});
+          break;
+
+        case "manage_wire_connections":
+          result = await canvasTools.manageWireConnections(args || {});
           break;
 
         default:

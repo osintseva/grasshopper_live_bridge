@@ -545,3 +545,39 @@ export async function createScriptComponent(args = {}) {
     throw error;
   }
 }
+
+export async function manageWireConnections(args = {}) {
+  const {
+    action = 'connect',
+    connections = [],
+    partialOperations = []
+  } = args;
+
+  logger.toolCall('manageWireConnections', args);
+
+  try {
+    const client = getGrasshopperClient();
+
+    const response = await client.send('manage_wires', {
+      action,
+      connections,
+      partialOperations
+    });
+
+    if (response.status === 'success') {
+      const data = response.data || {};
+      return {
+        success: true,
+        action,
+        successCount: data.successCount || 0,
+        failureCount: data.failureCount || 0,
+        errors: data.errors || []
+      };
+    } else {
+      throw new Error(response.message || 'Wire management failed');
+    }
+  } catch (error) {
+    logger.error('Failed to manage wire connections', error);
+    throw error;
+  }
+}
