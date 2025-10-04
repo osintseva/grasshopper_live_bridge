@@ -83,13 +83,21 @@ explode_curve|150,300|i9j0k1l2: List[Curve] = "Explode" | ["Curve"(Curve):input1
 - Component type recognition (built-in vs custom clusters)
 
 
-### [ ] Complete Input/Output Notation Enhancement
-**Goal:** Include all inputs and outputs in component notation, not only used ones, to help Claude understand component capabilities.
+### [✅] Complete Input/Output Notation Enhancement
+**Goal:** Include all inputs and outputs in component notation, not only used ones, to help Claude understand component capabilities. ✅ **COMPLETED**
 
-**What's needed:**
-- Modify pseudocode generation to show all parameters, marking unused ones with "_" or special notation
-- Include input/output UUIDs for precise wire management
-- Ensure Claude can understand component I/O capabilities even when not all are used
+**Implementation:**
+- ✅ All inputs and outputs shown in pseudocode (regardless of connection status)
+- ✅ UUIDs included for all parameters for precise wire management
+- ✅ Type information included for all parameters
+- ✅ No visual distinction between connected/unconnected (user preference)
+- ✅ Full component capabilities visible to Claude
+
+**Changes Made:**
+- Removed underscore prefix from unconnected inputs (user feedback: "it does not matter much")
+- Updated documentation in CLAUDE.md
+- Updated code comments to reflect current format
+- MCP parsing maintains `isUnused` flag for backward compatibility (always false now)
 
 ### [ ] Wire Connection/Disconnection MCP Tool
 **Goal:** Create a separate MCP tool to connect or disconnect wires between components in Grasshopper.

@@ -473,7 +473,7 @@ namespace LiveCoding
                 // Generate all components in the new pipe-delimited format
                 foreach (var comp in sortedComponents)
                 {
-                    // Format: variable|x,y|comp_uuid: ComponentType = "Component Name" | ["Input Name"(InputType):param_uuid, "_Unused Input"(Type):param_uuid] | ["Output Name"(OutputType):param_uuid]
+                    // Format: variable|x,y|comp_uuid: ComponentType = "Component Name" | ["Input Name"(InputType):param_uuid] | ["Output Name"(OutputType):param_uuid]
 
                     var position = $"{(int)comp.X},{(int)comp.Y}";
                     var compUuid = comp.Guid.ToString();
@@ -484,7 +484,7 @@ namespace LiveCoding
                     var inputParts = new List<string>();
                     foreach (var input in comp.Inputs)
                     {
-                        var inputName = input.HasConnections ? input.Name : $"_{input.Name}";
+                        var inputName = input.Name;
                         var inputType = input.TypeName ?? "Object";
                         var paramUuid = input.ParameterUuid.ToString();
                         inputParts.Add($"\"{inputName}\"({inputType}):{paramUuid}");

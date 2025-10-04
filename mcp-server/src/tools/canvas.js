@@ -59,7 +59,7 @@ export function parseEnhancedPipeDelimitedLine(line) {
 }
 
 /**
- * Parse a parameter section like ["Input Name"(InputType):param_uuid, "_Unused Input"(Type):param_uuid]
+ * Parse a parameter section like ["Input Name"(InputType):param_uuid, "Input Name"(Type):param_uuid]
  */
 export function parseParameterSection(section) {
   if (!section || section === '[]') {

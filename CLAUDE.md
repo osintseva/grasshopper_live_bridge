@@ -65,7 +65,7 @@ The system uses "Enhanced Pipe-Delimited with Types" format:
 ```
 variable|x,y|comp_uuid: ComponentType = "Component Name" | ["Input Name"(InputType):param_uuid] | ["Output Name"(OutputType):param_uuid]
 ```
-- Unused inputs prefixed with underscore: `"_Unused Input"`
+- All inputs and outputs shown regardless of connection status
 - Standard hyphenated GUIDs (36 chars): `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
 - Topologically sorted for dependency analysis
 
