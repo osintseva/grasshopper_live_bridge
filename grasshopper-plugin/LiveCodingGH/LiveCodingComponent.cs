@@ -1436,7 +1436,7 @@ second_output = result_second");
                     if (sourceObject == null && sourceId.Length >= 4)
                     {
                         sourceObject = doc.Objects
-                            .FirstOrDefault(obj => obj.InstanceGuid.ToString("N").StartsWith(sourceId, StringComparison.OrdinalIgnoreCase));
+                            .FirstOrDefault(obj => obj.InstanceGuid.ToString().StartsWith(sourceId, StringComparison.OrdinalIgnoreCase));
                     }
 
                     // Determine source parameter for connection

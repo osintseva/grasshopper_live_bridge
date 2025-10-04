@@ -101,17 +101,21 @@ Response format:
 ```
 
 ### Connection Strategy (Component Linking)
-The `MakeConnections` method uses 4 fallback strategies:
-1. Full GUID matching
-2. GUID without hyphens (32-char)
+The `MakeConnections` method uses 5 fallback strategies:
+1. Full GUID matching (36-char hyphenated)
+2. GUID without hyphens (32-char, reformatted to 36-char)
 3. Nickname matching (components)
 4. Nickname matching (parameters/sliders)
+5. Partial UUID matching (prefix match, 36-char hyphenated)
 
 ### Canvas Analysis
 - `GetCanvasInfo()` generates pseudocode representation
 - Topological sort ensures dependency order
 - Variable names generated from NickName → Name → ComponentType
-- Standard hyphenated GUIDs (36 chars) used for all component and parameter identification
+- **UUID Format Standard**: All UUIDs use 36-character hyphenated lowercase format: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
+  - C# uses `Guid.ToString()` (default format)
+  - JavaScript normalizes to lowercase for comparison
+  - 32-char format supported only in fallback matching (strategy 2)
 
 ## MCP Tools Available
 
