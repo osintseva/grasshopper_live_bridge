@@ -156,8 +156,12 @@ export class GrasshopperClient extends EventEmitter {
     });
   }
 
-  async getCanvasState(includeSelection = false) {
-    const response = await this.send('get_canvas_info', { includeSelection });
+  async getCanvasState(includeSelection = false, includeDataPreviews = false, maxPreviewLength = 20) {
+    const response = await this.send('get_canvas_info', {
+      includeSelection,
+      includeDataPreviews,
+      maxPreviewLength
+    });
 
     // Return pseudocode data directly as string
     return response.data || response;

@@ -6,9 +6,9 @@ export class CanvasCache {
     this.store = getStore();
   }
 
-  async getCanvas(forceRefresh = false) {
+  async getCanvas(forceRefresh = false, includeDataPreviews = false, maxPreviewLength = 20) {
     const cacheKey = 'canvas-full';
-    
+
     if (!forceRefresh) {
       const cached = this.store.getCache(cacheKey);
       if (cached) {
@@ -19,9 +19,9 @@ export class CanvasCache {
     // If not cached or force refresh, fetch from Grasshopper
     const { getGrasshopperClient } = await import('../websocket-client.js');
     const client = getGrasshopperClient();
-    
+
     try {
-      const canvasData = await client.getCanvasState(true);
+      const canvasData = await client.getCanvasState(true, includeDataPreviews, maxPreviewLength);
       
       // Cache the result
       this.store.setCache(cacheKey, canvasData, this.ttlMs);

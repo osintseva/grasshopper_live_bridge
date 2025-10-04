@@ -84,7 +84,7 @@ class CanvasStateSaver:
         """Get current canvas state from Grasshopper"""
         print("📊 Fetching canvas state...")
 
-        response = await self.send_command("get_canvas_info")
+        response = await self.send_command("get_canvas_info", {"includeDataPreviews": True, "maxPreviewLength": 30})
         if response and response.get("status") == "success":
             print("✅ Canvas state retrieved successfully!")
             return response.get("data", "")

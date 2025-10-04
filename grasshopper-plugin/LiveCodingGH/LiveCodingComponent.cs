@@ -27,7 +27,7 @@ namespace LiveCoding
     ///   - create_slider                      { x?, y?, nickname? }
     ///   - create_python_component            { x?, y?, code?, inputs[], outputs[], connections[] }
     ///   - update_script                      { componentId, code }
-    ///   - get_canvas_info                    (returns JSON of entire canvas definition)
+    ///   - get_canvas_info                    { includeDataPreviews?, maxPreviewLength? } (returns JSON of entire canvas definition)
     /// </summary>
     public class LiveCodingComponent : GH_Component
     {
@@ -175,7 +175,7 @@ namespace LiveCoding
                         break;
 
                     case "get_canvas_info":
-                        GetCanvasInfo(doc, cmd.CorrelationId);
+                        GetCanvasInfo(doc, payload, cmd.CorrelationId);
                         break;
 
                     case "get_selection":
@@ -304,16 +304,18 @@ namespace LiveCoding
 
         // ---------------------- Canvas Analysis ----------------------
 
-        private const int PREVIEW_CHAR_LIMIT = 20;
         private const int FULL_DATA_CHAR_LIMIT = 10000;
-        private const bool INCLUDE_DATA_PREVIEWS = false; // Set to false to disable inline comments with data previews
         private const int DATA_PREVIEW_LIMIT = 100;
 
-        private void GetCanvasInfo(GH_Document doc, string correlationId = null)
+        private void GetCanvasInfo(GH_Document doc, Dictionary<string, object> payload, string correlationId = null)
         {
             try
             {
-                LogDebug($"GetCanvasInfo started. Doc null? {doc == null}");
+                // Parse optional parameters for data preview control
+                bool includeDataPreviews = payload != null && payload.ContainsKey("includeDataPreviews") && payload["includeDataPreviews"] is bool b && b;
+                int maxPreviewLength = payload != null && payload.ContainsKey("maxPreviewLength") && payload["maxPreviewLength"] is int len ? len : 20;
+
+                LogDebug($"GetCanvasInfo started. Doc null? {doc == null}, includeDataPreviews: {includeDataPreviews}, maxPreviewLength: {maxPreviewLength}");
                 if (doc == null)
                 {
                     LogDebug("No active Grasshopper document found");
@@ -495,22 +497,28 @@ namespace LiveCoding
                     {
                         var outputType = outputParam.TypeName ?? "Object";
                         var paramUuid = outputParam.ParameterUuid.ToString();
-                        outputParts.Add($"\"{outputParam.Name}\"({outputType}):{paramUuid}");
+                        var paramDef = $"\"{outputParam.Name}\"({outputType}):{paramUuid}";
+
+                        // Optionally include data preview inline
+                        if (includeDataPreviews && !string.IsNullOrEmpty(outputParam.DataPreview) && outputParam.DataPreview != "null")
+                        {
+                            var preview = outputParam.DataPreview;
+                            // Truncate to maxPreviewLength
+                            if (preview.Length > maxPreviewLength)
+                            {
+                                preview = preview.Substring(0, maxPreviewLength - 2) + "..";
+                            }
+                            // Escape double quotes for embedding in string
+                            preview = preview.Replace("\"", "\\\"");
+                            paramDef += $"=\"{preview}\"";
+                        }
+
+                        outputParts.Add(paramDef);
                     }
                     var outputSection = outputParts.Any() ? $"[{string.Join(", ", outputParts)}]" : "[]";
 
                     // Generate the complete line
                     var line = $"{comp.VariableName}|{position}|{compUuid}: {componentType} = \"{componentName}\" | {inputSection} | {outputSection}";
-
-                    // Add data preview as comment if enabled
-                    if (INCLUDE_DATA_PREVIEWS && comp.Outputs.Any())
-                    {
-                        var previewData = comp.Outputs.Where(o => !string.IsNullOrEmpty(o.DataPreview) && o.DataPreview != "null").Select(o => o.DataPreview).FirstOrDefault();
-                        if (!string.IsNullOrEmpty(previewData))
-                        {
-                            line += $"  # {previewData}";
-                        }
-                    }
 
                     output.AppendLine(line);
                 }

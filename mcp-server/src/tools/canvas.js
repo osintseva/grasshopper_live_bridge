@@ -77,15 +77,17 @@ export function parseParameterSection(section) {
   const parts = content.split(/,(?=\s*")/);
 
   for (const part of parts) {
-    // Updated regex to handle standard hyphenated GUIDs (36 characters)
-    const paramMatch = part.trim().match(/"([^"]+)"\(([^)]+)\):([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/);
+    // Updated regex to handle standard hyphenated GUIDs (36 characters) and optional data preview
+    // Format: "Name"(Type):uuid or "Name"(Type):uuid="preview with possible \" escapes"
+    const paramMatch = part.trim().match(/"([^"]+)"\(([^)]+)\):([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})(?:="((?:[^"\\]|\\.)*)")?/);
     if (paramMatch) {
-      const [, name, type, uuid] = paramMatch;
+      const [, name, type, uuid, dataPreview] = paramMatch;
       parameters.push({
         name: name,
         type: type,
         uuid: uuid,
-        isUnused: name.startsWith('_')
+        isUnused: name.startsWith('_'),
+        dataPreview: dataPreview || undefined  // Only include if present
       });
     }
   }
@@ -94,13 +96,13 @@ export function parseParameterSection(section) {
 }
 
 export async function getCanvasState(args = {}) {
-  const { includeSelection = false, forceRefresh = false } = args;
+  const { includeSelection = false, forceRefresh = false, includeDataPreviews = false, maxPreviewLength = 20 } = args;
 
   logger.toolCall('getCanvasState', args);
 
   try {
     const cache = getCanvasCache();
-    const pseudocode = await cache.getCanvas(forceRefresh);
+    const pseudocode = await cache.getCanvas(forceRefresh, includeDataPreviews, maxPreviewLength);
 
     return {
       type: 'pseudocode',

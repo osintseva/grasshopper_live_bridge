@@ -226,7 +226,7 @@ vertices = points[:-1] if len(points) > 1 else points  # Remove duplicate closin
         """Verify that connections were actually created"""
         print("\\n🔗 Verifying component connections...")
 
-        response = await self.send_command("get_canvas_info")
+        response = await self.send_command("get_canvas_info", {"includeDataPreviews": True, "maxPreviewLength": 30})
         if not response or response.get("status") != "success":
             print("❌ Could not get canvas info for verification")
             return False
@@ -298,7 +298,7 @@ vertices = points[:-1] if len(points) > 1 else points  # Remove duplicate closin
         """Get current canvas information"""
         print("\\n📊 Getting canvas information...")
 
-        response = await self.send_command("get_canvas_info")
+        response = await self.send_command("get_canvas_info", {"includeDataPreviews": True, "maxPreviewLength": 30})
         if response and response.get("status") == "success":
             print("✅ Canvas info retrieved successfully!")
             # Print a summary

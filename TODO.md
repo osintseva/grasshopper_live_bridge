@@ -191,16 +191,37 @@ processor@(300,200): Geometry = Transform(geometry=new_slider.output, transform=
 - **Response:** `{ centerComponent, upstreamComponents[], downstreamComponents[], connections[] }`
 
 
-### [ ] Enable Dynamic Data Preview Control
+### [✅] Enable Dynamic Data Preview Control
 
-**Current State:** Data preview functionality exists but is disabled by default.
+**Current State:** Data preview functionality is now dynamically controllable via MCP tool parameters.
 
-**Goal:** Allow Claude to toggle data previews without rebuilding the plugin.
+**Goal:** Allow Claude to toggle data previews without rebuilding the plugin. ✅ **COMPLETED**
 
-**What's needed:**
-- **New MCP Tool:** `set_data_preview_mode`
-- **New Endpoint:** `set_preview_mode` in Grasshopper plugin
-- **Location:** Currently at `grasshopper-plugin/LiveCodingGH/LiveCodingComponent.cs:279`
+**Implementation:**
+- Added optional parameters to existing `get_canvas_state` MCP tool:
+  - `includeDataPreviews` (boolean, default: false) - Enable/disable inline data previews
+  - `maxPreviewLength` (number, default: 20) - Control preview truncation length
+- Preview format uses **Option 1 syntax**: `"Name"(Type):uuid="preview"`
+- Applied to **outputs only** to avoid data duplication
+- Backward compatible - defaults maintain current behavior
+
+**Updated Files:**
+- `grasshopper-plugin/LiveCodingGH/LiveCodingComponent.cs` - GetCanvasInfo method with preview parameters
+- `mcp-server/src/servers/mcp.js` - Tool schema with new parameters
+- `mcp-server/src/tools/canvas.js` - Parameter parsing and regex updates
+- `mcp-server/src/state/canvas-cache.js` - Parameter passthrough
+- `mcp-server/src/websocket-client.js` - WebSocket payload updates
+- `scripts/testing/*.py` - Test scripts updated to use 30-char previews
+
+**Example Usage:**
+```javascript
+await getCanvasState({ includeDataPreviews: true, maxPreviewLength: 30 })
+```
+
+**Output Format:**
+```
+circles|100,200|uuid: Circle = "Circles" | ["Points"(Point):uuid] | ["Circles"(Circle):uuid="[Circle(r=5.0), Circle(r=.."]
+```
 
 
 ### [ ]  Canvas State Diffing

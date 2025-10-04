@@ -52,6 +52,16 @@ export function createMcpServer(config = {}) {
                 type: "boolean",
                 description: "Force refresh from Grasshopper",
                 default: false
+              },
+              includeDataPreviews: {
+                type: "boolean",
+                description: "Include data preview values inline in output parameters",
+                default: false
+              },
+              maxPreviewLength: {
+                type: "number",
+                description: "Maximum character length for each data preview (default 20)",
+                default: 20
               }
             },
             additionalProperties: false,
