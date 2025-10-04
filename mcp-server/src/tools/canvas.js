@@ -27,7 +27,8 @@ export function parseEnhancedPipeDelimitedLine(line) {
   // Match the enhanced pipe-delimited format with more flexible bracket handling
   // We need to handle nested brackets in type names like List[Curve]
   // Fixed regex to handle negative coordinates: -?\d+ instead of \d+
-  const match = cleanLine.match(/^(\w+)\|(-?\d+,-?\d+)\|(\w+):\s*(.+?)\s*=\s*"([^"]+)"\s*\|\s*(\[.*?\])\s*\|\s*(\[.*?\])(?:\s*#\s*(.+))?$/);
+  // Updated to handle standard hyphenated GUIDs (36 characters): xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  const match = cleanLine.match(/^(\w+)\|(-?\d+,-?\d+)\|([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}):\s*(.+?)\s*=\s*"([^"]+)"\s*\|\s*(\[.*?\])\s*\|\s*(\[.*?\])(?:\s*#\s*(.+))?$/);
 
   if (!match) {
     return null;
@@ -76,7 +77,8 @@ export function parseParameterSection(section) {
   const parts = content.split(/,(?=\s*")/);
 
   for (const part of parts) {
-    const paramMatch = part.trim().match(/"([^"]+)"\(([^)]+)\):(\w+)/);
+    // Updated regex to handle standard hyphenated GUIDs (36 characters)
+    const paramMatch = part.trim().match(/"([^"]+)"\(([^)]+)\):([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/);
     if (paramMatch) {
       const [, name, type, uuid] = paramMatch;
       parameters.push({
@@ -137,9 +139,8 @@ export async function getSelection(args = {}) {
       const lines = pseudocode.split(/\r?\n/);
 
       for (const selectedId of selection) {
-        // Find component in pseudocode
-        const fullUuidNoHyphens = selectedId.replace(/-/g, '');
-        const shortUuid = fullUuidNoHyphens.substring(0, 8);
+        // Find component in pseudocode - use standard hyphenated UUID (36 characters)
+        const normalizedUuid = selectedId.toLowerCase();
 
         let componentLine = null;
         let parsedComponent = null;
@@ -147,7 +148,7 @@ export async function getSelection(args = {}) {
         // Find the component using the new format
         for (const line of lines) {
           const parsed = parseEnhancedPipeDelimitedLine(line);
-          if (parsed && (parsed.compUuid === shortUuid || parsed.compUuid === fullUuidNoHyphens)) {
+          if (parsed && parsed.compUuid.toLowerCase() === normalizedUuid) {
             componentLine = line;
             parsedComponent = parsed;
             break;
@@ -280,16 +281,15 @@ export async function getComponentInfo(args = {}) {
     // Try to parse with the new Enhanced Pipe-Delimited format first
     // Split by both Unix (\n) and Windows (\r\n) line endings
     const lines = pseudocode.split(/\r?\n/);
-    const fullUuidNoHyphens = componentUuid.replace(/-/g, '');
-    const shortUuid = fullUuidNoHyphens.substring(0, 8);
+    const normalizedUuid = componentUuid.toLowerCase();
 
     let componentLine = null;
     let parsedComponent = null;
 
-    // Try to find the component using the new format
+    // Try to find the component using the new format (standard hyphenated UUID)
     for (const line of lines) {
       const parsed = parseEnhancedPipeDelimitedLine(line);
-      if (parsed && (parsed.compUuid === shortUuid || parsed.compUuid === fullUuidNoHyphens)) {
+      if (parsed && parsed.compUuid.toLowerCase() === normalizedUuid) {
         componentLine = line;
         parsedComponent = parsed;
         break;
@@ -298,10 +298,7 @@ export async function getComponentInfo(args = {}) {
 
     // Fallback to old string matching for backwards compatibility
     if (!componentLine) {
-      componentLine = lines.find(line => line.includes(fullUuidNoHyphens));
-      if (!componentLine) {
-        componentLine = lines.find(line => line.includes(shortUuid));
-      }
+      componentLine = lines.find(line => line.toLowerCase().includes(normalizedUuid));
     }
 
     return {

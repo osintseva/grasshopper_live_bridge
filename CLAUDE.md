@@ -19,7 +19,8 @@ cd grasshopper-plugin
 dotnet build -c Release
 
 # Install to Grasshopper (⚠️ close Rhino first!)
-Copy-Item "LiveCodingGH\bin\Release\net48\LiveCodingGH.gha" "$env:APPDATA\Grasshopper\Libraries\"
+cd grasshopper-plugin/LiveCodingGH/bin/Release/net48 && cp
+      LiveCodingGH.gha "$APPDATA/Grasshopper/Libraries/"
 ```
 
 ### MCP Server (Node.js)
@@ -65,7 +66,7 @@ The system uses "Enhanced Pipe-Delimited with Types" format:
 variable|x,y|comp_uuid: ComponentType = "Component Name" | ["Input Name"(InputType):param_uuid] | ["Output Name"(OutputType):param_uuid]
 ```
 - Unused inputs prefixed with underscore: `"_Unused Input"`
-- Short UUIDs (8 chars) for readability
+- Standard hyphenated GUIDs (36 chars): `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
 - Topologically sorted for dependency analysis
 
 ## Critical Implementation Details
@@ -100,24 +101,23 @@ Response format:
 ```
 
 ### Connection Strategy (Component Linking)
-The `MakeConnections` method uses 5 fallback strategies:
+The `MakeConnections` method uses 4 fallback strategies:
 1. Full GUID matching
 2. GUID without hyphens (32-char)
 3. Nickname matching (components)
 4. Nickname matching (parameters/sliders)
-5. Partial UUID prefix matching (minimum 4 chars)
 
 ### Canvas Analysis
 - `GetCanvasInfo()` generates pseudocode representation
 - Topological sort ensures dependency order
 - Variable names generated from NickName → Name → ComponentType
-- UUID collision handling with progressive length (4→6→8 chars)
+- Standard hyphenated GUIDs (36 chars) used for all component and parameter identification
 
 ## MCP Tools Available
 
 All tools in `mcp-server/src/tools/canvas.js`:
 - `get_canvas_state` - Full canvas pseudocode
-- `get_selection` - Currently selected components (8-char UUIDs)
+- `get_selection` - Currently selected components (full UUIDs)
 - `query_canvas_pseudocode` - Text/regex/wildcard search
 - `get_component_info` - Detailed component data by UUID
 - `find_components` - Search by name/type/error status

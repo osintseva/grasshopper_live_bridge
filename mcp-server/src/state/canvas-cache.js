@@ -84,16 +84,15 @@ export class CanvasCache {
     // Import the parsing function from canvas.js
     const { parseEnhancedPipeDelimitedLine } = await import('../tools/canvas.js');
 
-    // Look for component using the new Enhanced Pipe-Delimited format
-    const fullUuidNoHyphens = componentUuid.replace(/-/g, '');
-    const shortUuid = fullUuidNoHyphens.substring(0, 8);
+    // Look for component using the new Enhanced Pipe-Delimited format (standard hyphenated UUID)
+    const normalizedUuid = componentUuid.toLowerCase();
 
     // Split by both Unix (\n) and Windows (\r\n) line endings
     const lines = pseudocode.split(/\r?\n/);
 
     for (const line of lines) {
       const parsed = parseEnhancedPipeDelimitedLine(line);
-      if (parsed && (parsed.compUuid === shortUuid || parsed.compUuid === fullUuidNoHyphens)) {
+      if (parsed && parsed.compUuid.toLowerCase() === normalizedUuid) {
         const component = {
           InstanceGuid: componentUuid,
           VariableName: parsed.variable,

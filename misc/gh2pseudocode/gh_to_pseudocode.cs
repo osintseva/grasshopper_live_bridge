@@ -24,7 +24,6 @@ public class Script_Instance : GH_ScriptInstance
 {
 	private const bool INCLUDE_DATA_PREVIEWS = false; // Set to false to disable inline comments with data previews
 	private const int DATA_PREVIEW_LIMIT = 100;
-	private const int UUID_LENGTH = 8; // First 8 chars of UUID
 
 	/// <summary>
 	/// Generates a compact data preview string (max 100 chars).
@@ -80,23 +79,13 @@ public class Script_Instance : GH_ScriptInstance
 	}
 
 	/// <summary>
-	/// Truncates UUID to specified length and handles collisions.
+	/// Returns full UUID with standard hyphenated format.
 	/// </summary>
-	private string GetShortUuid(Guid guid, HashSet<string> usedUuids)
+	private string GetFullUuid(Guid guid, HashSet<string> usedUuids)
 	{
-		string uuidStr = guid.ToString("N"); // No hyphens
-		for (int len = 4; len <= UUID_LENGTH; len += 2)
-		{
-			string shortUuid = uuidStr.Substring(0, len);
-			if (!usedUuids.Contains(shortUuid))
-			{
-				usedUuids.Add(shortUuid);
-				return shortUuid;
-			}
-		}
-		// Fallback if all lengths are taken (very unlikely)
-		usedUuids.Add(uuidStr.Substring(0, UUID_LENGTH));
-		return uuidStr.Substring(0, UUID_LENGTH);
+		string uuidStr = guid.ToString(); // Standard format with hyphens (36 characters)
+		usedUuids.Add(uuidStr);
+		return uuidStr;
 	}
 
 	/// <summary>
@@ -127,8 +116,8 @@ public class Script_Instance : GH_ScriptInstance
 			baseName = "comp_" + baseName;
 		}
 
-		string shortUuid = GetShortUuid(comp.Guid, usedUuids);
-		return $"{baseName}_{shortUuid}";
+		string fullUuid = GetFullUuid(comp.Guid, usedUuids);
+		return $"{baseName}_{fullUuid}";
 	}
 
 	/// <summary>

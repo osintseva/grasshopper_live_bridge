@@ -129,7 +129,7 @@ explode_curve|150,300|i9j0k1l2: List[Curve] = "Explode" | ["Curve"(Curve):input1
 **Implementation Requirements:**
 - Add to `mcp-server/src/tools/canvas.js`
 - Add corresponding endpoint in `grasshopper-plugin/LiveCodingGH/LiveCodingComponent.cs`
-- Support UUID-based component lookup (both full and short UUIDs)
+- Support UUID-based component lookup (full UUIDs only)
 - Validate component and parameter existence before operations
 - Handle both `IGH_Component` and `IGH_Param` objects for wire connections
 - Return success/failure status with detailed error messages

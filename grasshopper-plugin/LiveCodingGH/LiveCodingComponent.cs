@@ -308,7 +308,6 @@ namespace LiveCoding
         private const int FULL_DATA_CHAR_LIMIT = 10000;
         private const bool INCLUDE_DATA_PREVIEWS = false; // Set to false to disable inline comments with data previews
         private const int DATA_PREVIEW_LIMIT = 100;
-        private const int UUID_LENGTH = 8; // First 8 chars of UUID
 
         private void GetCanvasInfo(GH_Document doc, string correlationId = null)
         {
@@ -475,7 +474,7 @@ namespace LiveCoding
                     // Format: variable|x,y|comp_uuid: ComponentType = "Component Name" | ["Input Name"(InputType):param_uuid, "_Unused Input"(Type):param_uuid] | ["Output Name"(OutputType):param_uuid]
 
                     var position = $"{(int)comp.X},{(int)comp.Y}";
-                    var compUuid = comp.Guid.ToString("N").Substring(0, 8);
+                    var compUuid = comp.Guid.ToString();
                     var componentType = comp.ComponentType ?? "Object";
                     var componentName = comp.Name ?? comp.NickName ?? "Component";
 
@@ -485,7 +484,7 @@ namespace LiveCoding
                     {
                         var inputName = input.HasConnections ? input.Name : $"_{input.Name}";
                         var inputType = input.TypeName ?? "Object";
-                        var paramUuid = input.ParameterUuid.ToString("N").Substring(0, 8);
+                        var paramUuid = input.ParameterUuid.ToString();
                         inputParts.Add($"\"{inputName}\"({inputType}):{paramUuid}");
                     }
                     var inputSection = inputParts.Any() ? $"[{string.Join(", ", inputParts)}]" : "[]";
@@ -495,7 +494,7 @@ namespace LiveCoding
                     foreach (var outputParam in comp.Outputs)
                     {
                         var outputType = outputParam.TypeName ?? "Object";
-                        var paramUuid = outputParam.ParameterUuid.ToString("N").Substring(0, 8);
+                        var paramUuid = outputParam.ParameterUuid.ToString();
                         outputParts.Add($"\"{outputParam.Name}\"({outputType}):{paramUuid}");
                     }
                     var outputSection = outputParts.Any() ? $"[{string.Join(", ", outputParts)}]" : "[]";
@@ -623,23 +622,13 @@ namespace LiveCoding
         }
 
         /// <summary>
-        /// Truncates UUID to specified length and handles collisions.
+        /// Returns full UUID with standard hyphenated format.
         /// </summary>
-        private string GetShortUuid(Guid guid, HashSet<string> usedUuids)
+        private string GetFullUuid(Guid guid, HashSet<string> usedUuids)
         {
-            string uuidStr = guid.ToString("N"); // No hyphens
-            for (int len = 4; len <= UUID_LENGTH; len += 2)
-            {
-                string shortUuid = uuidStr.Substring(0, len);
-                if (!usedUuids.Contains(shortUuid))
-                {
-                    usedUuids.Add(shortUuid);
-                    return shortUuid;
-                }
-            }
-            // Fallback if all lengths are taken (very unlikely)
-            usedUuids.Add(uuidStr.Substring(0, UUID_LENGTH));
-            return uuidStr.Substring(0, UUID_LENGTH);
+            string uuidStr = guid.ToString(); // Standard format with hyphens (36 characters)
+            usedUuids.Add(uuidStr);
+            return uuidStr;
         }
 
         /// <summary>
@@ -670,13 +659,12 @@ namespace LiveCoding
                 baseName = "comp_" + baseName;
             }
 
-            string shortUuid = GetShortUuid(comp.Guid, usedUuids);
+            string fullUuid = GetFullUuid(comp.Guid, usedUuids);
 
-            // Store both full and short UUID for connection purposes
+            // Store full UUID for connection purposes
             comp.FullUuidString = comp.Guid.ToString();
-            comp.ShortUuidString = shortUuid;
 
-            return $"{baseName}_{shortUuid}";
+            return $"{baseName}_{fullUuid}";
         }
 
         /// <summary>
@@ -755,9 +743,9 @@ namespace LiveCoding
                     {
                         if (selectedObj is IGH_DocumentObject docObj)
                         {
-                            // Use short UUID format (first 8 characters) to match pseudocode format
-                            var shortUuid = docObj.InstanceGuid.ToString().Replace("-", "").Substring(0, 8);
-                            selectedObjects.Add(shortUuid);
+                            // Use standard hyphenated UUID format (36 characters)
+                            var fullUuid = docObj.InstanceGuid.ToString();
+                            selectedObjects.Add(fullUuid);
                         }
                     }
                 }
@@ -1835,7 +1823,6 @@ second_output = result_second");
         public bool IsComponent { get; set; }
         public string VariableName { get; set; }
         public string FullUuidString { get; set; }  // Store full UUID for connections
-        public string ShortUuidString { get; set; } // Store short UUID for display
         public float X { get; set; } // Component X position on canvas
         public float Y { get; set; } // Component Y position on canvas
         public string ComponentType { get; set; } // Type of component (e.g., Geometry, Curve, etc.)
