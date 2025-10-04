@@ -171,6 +171,9 @@ processor@(300,200): Geometry = Transform(geometry=new_slider.output, transform=
 - Handle component dependencies and connection order
 - Validate pseudocode syntax before component creation
 
+### [ ] Add Group Support to Pseudocode Notation
+**Goal:** Enable Claude to fetch information about groups of components in pseudocode notation.
+
 
 ### [ ] Add Component Context Retrieval Tool
 
