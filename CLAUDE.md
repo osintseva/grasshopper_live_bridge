@@ -77,7 +77,7 @@ variable|x,y|comp_uuid: ComponentType = "Component Name" | ["Input Name"(InputTy
 - Method overload handling: tries `Create(string, string)` → `Create(string)` → `Create(string, Bitmap, bool)`
 - **IMPORTANT**: Default parameters (x, y, out, a) must be removed before adding custom ones
 - Call `VariableParameterMaintenance()` after adding custom parameters
-- Connections made after component added to document (outside solution context)
+- **Wire connections**: Use separate `manage_wire_connections` tool after component creation for reliable wiring
 
 ### WebSocket Message Protocol
 All messages use JSON with correlation IDs:
@@ -125,8 +125,8 @@ All tools in `mcp-server/src/tools/canvas.js`:
 - `query_canvas_pseudocode` - Text/regex/wildcard search
 - `get_component_info` - Detailed component data by UUID
 - `find_components` - Search by name/type/error status
-- `create_script_component` - Create Python components with custom I/O
-- `manage_wire_connections` - Connect/disconnect wires between components
+- `create_script_component` - Create Python components with custom I/O (no automatic wiring)
+- `manage_wire_connections` - Connect/disconnect wires between components (use this after creating components)
 
 ## Development Patterns
 

@@ -68,7 +68,7 @@ python save_canvas_state.py
 
 The test suite validates:
 - ✅ Python component creation using proven ScriptVariableParam API
-- ✅ Custom inputs/outputs with automatic connections
+- ✅ Custom inputs/outputs with two-step wire connections
 - ✅ Robust method overload handling and error recovery
 - ✅ Connection verification through canvas analysis
 - ✅ Canvas state extraction and markdown documentation
@@ -78,7 +78,7 @@ The test suite validates:
 - **🔌 WebSocket API** - Real-time communication with Grasshopper (`ws://localhost:8181/live`)
 - **📊 Canvas Analysis** - Get complete pseudocode representation of your Grasshopper definition
 - **🐍 Python Component Creation** - Proven method for programmatic Python component creation with custom I/O using ScriptVariableParam
-- **🔗 Automatic Connections** - Smart component wiring and parameter management
+- **🔗 Wire Management** - Separate wire connection/disconnection tool for reliable component linking
 - **🤖 MCP Integration** - Perfect for AI agents to understand and modify your canvas
 
 ## Architecture

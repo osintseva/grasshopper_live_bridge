@@ -440,7 +440,6 @@ export async function createScriptComponent(args = {}) {
     code = '',
     inputs = [],
     outputs = [],
-    connections = [],
     nickname = null
   } = args;
 
@@ -449,58 +448,12 @@ export async function createScriptComponent(args = {}) {
   try {
     const client = getGrasshopperClient();
 
-    // Validate connections before creating component
-    if (connections && connections.length > 0) {
-      logger.info(`Validating ${connections.length} connections before component creation`);
-
-      const cache = getCanvasCache();
-      const pseudocode = await cache.getCanvas();
-      // Split by both Unix (\n) and Windows (\r\n) line endings
-    const lines = pseudocode.split(/\r?\n/);
-
-      for (const connection of connections) {
-        const { sourceId, sourceOutput = 0, targetInput = 0 } = connection;
-
-        if (!sourceId) {
-          logger.warn('Skipping connection with empty sourceId');
-          continue;
-        }
-
-        // Try to find the source component in current canvas
-        let sourceFound = false;
-
-        // Check if sourceId is a full UUID
-        if (sourceId.length === 36 || sourceId.length === 32) {
-          const uuidToCheck = sourceId.replace(/-/g, '');
-          sourceFound = lines.some(line => line.includes(uuidToCheck));
-        }
-
-        // Check if sourceId is a nickname by looking for it in component lines
-        if (!sourceFound) {
-          sourceFound = lines.some(line => {
-            // Look for patterns like "nickname_uuid:" in component definitions
-            return line.includes(':') && line.includes('=') &&
-                   (line.toLowerCase().includes(sourceId.toLowerCase()) ||
-                    line.includes(`${sourceId}_`));
-          });
-        }
-
-        if (!sourceFound) {
-          logger.warn(`Warning: Source component '${sourceId}' not found in current canvas. Connection may fail.`);
-          logger.info(`Available components in canvas: ${lines.filter(line => line.includes(':') && line.includes('=')).length}`);
-        } else {
-          logger.info(`✓ Source component '${sourceId}' found for connection`);
-        }
-      }
-    }
-
     const payload = {
       x,
       y,
       code,
       inputs,
-      outputs,
-      connections
+      outputs
     };
 
     if (nickname) {
@@ -528,8 +481,7 @@ export async function createScriptComponent(args = {}) {
         nickname: componentData.nickname || nickname,
         inputCount: componentData.inputCount || inputs.length,
         outputCount: componentData.outputCount || outputs.length,
-        connectionCount: componentData.connectionCount || connections.length,
-        message: 'Python component created successfully',
+        message: 'Python component created successfully. Use manage_wire_connections to connect inputs.',
         response: response.data || response
       };
     } else {

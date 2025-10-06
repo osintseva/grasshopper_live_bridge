@@ -156,7 +156,7 @@ export function createMcpServer(config = {}) {
         },
         {
           name: "create_script_component",
-          description: "Create a Python component on the Grasshopper canvas with custom inputs/outputs and connections",
+          description: "Create a Python component on the Grasshopper canvas with custom inputs/outputs. Use manage_wire_connections separately to connect wires.",
           inputSchema: {
             type: "object",
             properties: {
@@ -222,28 +222,6 @@ export function createMcpServer(config = {}) {
                     }
                   },
                   required: ["name"]
-                }
-              },
-              connections: {
-                type: "array",
-                description: "Automatic connections to create",
-                items: {
-                  type: "object",
-                  properties: {
-                    sourceId: {
-                      type: "string",
-                      description: "Source component ID or nickname"
-                    },
-                    sourceOutput: {
-                      type: "number",
-                      description: "Source output index"
-                    },
-                    targetInput: {
-                      type: "number",
-                      description: "Target input index"
-                    }
-                  },
-                  required: ["sourceId", "sourceOutput", "targetInput"]
                 }
               },
               nickname: {

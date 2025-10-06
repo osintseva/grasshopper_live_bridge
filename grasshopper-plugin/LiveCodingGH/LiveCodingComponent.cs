@@ -25,7 +25,7 @@ namespace LiveCoding
     /// Actions:
     ///   - ping
     ///   - create_slider                      { x?, y?, nickname? }
-    ///   - create_python_component            { x?, y?, code?, inputs[], outputs[], connections[] }
+    ///   - create_python_component            { x?, y?, code?, inputs[], outputs[] }
     ///   - update_script                      { componentId, code }
     ///   - get_canvas_info                    { includeDataPreviews?, maxPreviewLength? } (returns JSON of entire canvas definition)
     /// </summary>
@@ -213,6 +213,101 @@ namespace LiveCoding
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic |
             BindingFlags.FlattenHierarchy | BindingFlags.IgnoreCase;
 
+
+        private void TryApplyTypeHint(object inputParam, Type scriptVariableParamType, string typeHint)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(typeHint)) return;
+
+                // Access the TypeHints object from the ScriptVariableParam
+                var typeHintsProp = scriptVariableParamType.GetProperty("TypeHints");
+                var typeHints = typeHintsProp?.GetValue(inputParam);
+                if (typeHints == null) return;
+
+                // First try: Select(Type) overload
+                var selectByType = typeHints.GetType().GetMethod("Select", new[] { typeof(Type) });
+                if (selectByType != null)
+                {
+                    var map = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["double"] = typeof(double),
+                        ["number"] = typeof(double),
+                        ["float"] = typeof(double),
+                        ["int"] = typeof(int),
+                        ["integer"] = typeof(int),
+                        ["string"] = typeof(string),
+                        ["text"] = typeof(string),
+                        ["bool"] = typeof(bool),
+                        ["boolean"] = typeof(bool),
+                        ["point"] = typeof(Rhino.Geometry.Point3d),
+                        ["point3d"] = typeof(Rhino.Geometry.Point3d),
+                        ["vector"] = typeof(Rhino.Geometry.Vector3d),
+                        ["line"] = typeof(Rhino.Geometry.Line),
+                        ["curve"] = typeof(Rhino.Geometry.Curve),
+                        ["brep"] = typeof(Rhino.Geometry.Brep),
+                        ["mesh"] = typeof(Rhino.Geometry.Mesh),
+                        ["guid"] = typeof(Guid)
+                    };
+
+                    if (map.TryGetValue(typeHint.Trim(), out var mappedType))
+                    {
+                        selectByType.Invoke(typeHints, new object[] { mappedType });
+                        return;
+                    }
+                }
+
+                // Second try: Select(string) overload
+                var selectByString = typeHints.GetType().GetMethod("Select", new[] { typeof(string) });
+                if (selectByString != null)
+                {
+                    selectByString.Invoke(typeHints, new object[] { typeHint });
+                    return;
+                }
+
+                // Third try: set a Selected/SelectedType property directly
+                var selectedProp = typeHints.GetType().GetProperty("Selected", BF)
+                                  ?? typeHints.GetType().GetProperty("SelectedType", BF);
+                if (selectedProp != null && selectedProp.CanWrite)
+                {
+                    var map2 = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["double"] = typeof(double),
+                        ["number"] = typeof(double),
+                        ["float"] = typeof(double),
+                        ["int"] = typeof(int),
+                        ["integer"] = typeof(int),
+                        ["string"] = typeof(string),
+                        ["text"] = typeof(string),
+                        ["bool"] = typeof(bool),
+                        ["boolean"] = typeof(bool),
+                        ["point"] = typeof(Rhino.Geometry.Point3d),
+                        ["point3d"] = typeof(Rhino.Geometry.Point3d),
+                        ["vector"] = typeof(Rhino.Geometry.Vector3d),
+                        ["line"] = typeof(Rhino.Geometry.Line),
+                        ["curve"] = typeof(Rhino.Geometry.Curve),
+                        ["brep"] = typeof(Rhino.Geometry.Brep),
+                        ["mesh"] = typeof(Rhino.Geometry.Mesh),
+                        ["guid"] = typeof(Guid)
+                    };
+
+                    // Fix possible typo key
+                    if (!map2.ContainsKey("curve")) map2["curve"] = typeof(Rhino.Geometry.Curve);
+
+                    if (map2.TryGetValue(typeHint.Trim(), out var mappedType))
+                    {
+                        selectedProp.SetValue(typeHints, mappedType);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogDebug($"TypeHint apply failed for '{typeHint}': {ex.GetType().Name} - {ex.Message}");
+                // Silently continue; do not block component creation
+            }
+        }
+
+
         // ---------------------- Response Methods ----------------------
 
         private void SendSuccessResponse(string action, string correlationId, string message = null)
@@ -372,7 +467,8 @@ namespace LiveCoding
                                     if (sourceParamIndex > -1) connections.Add(new int[] { sourceId, sourceParamIndex });
                                 }
                             }
-                            comp.Inputs.Add(new PseudocodeInput {
+                            comp.Inputs.Add(new PseudocodeInput
+                            {
                                 Name = inputParam.Name,
                                 TypeName = inputParam.TypeName,
                                 Connections = connections,
@@ -383,11 +479,13 @@ namespace LiveCoding
                         }
 
                         // Parse outputs
-                        comp.Outputs = ghComponent.Params.Output.Select(p => {
+                        comp.Outputs = ghComponent.Params.Output.Select(p =>
+                        {
                             var data = p.VolatileData.AllData(true);
                             var dataPreview = data.Any() ? string.Join(", ", data.Select(GetCompactDataPreview)) : "null";
 
-                            return new PseudocodeOutput {
+                            return new PseudocodeOutput
+                            {
                                 Name = p.Name,
                                 TypeName = p.TypeName,
                                 DataPreview = dataPreview,
@@ -416,7 +514,8 @@ namespace LiveCoding
                         var data = ghParam.VolatileData.AllData(true);
                         var dataPreview = data.Any() ? string.Join(", ", data.Select(GetCompactDataPreview)) : "null";
 
-                        comp.Outputs.Add(new PseudocodeOutput {
+                        comp.Outputs.Add(new PseudocodeOutput
+                        {
                             Name = ghParam.Name,
                             TypeName = ghParam.TypeName,
                             DataPreview = dataPreview,
@@ -436,7 +535,8 @@ namespace LiveCoding
                                     if (sourceParamIndex > -1) connections.Add(new int[] { sourceId, sourceParamIndex });
                                 }
                             }
-                            comp.Inputs.Add(new PseudocodeInput {
+                            comp.Inputs.Add(new PseudocodeInput
+                            {
                                 Name = "Input",
                                 TypeName = ghParam.TypeName,
                                 Connections = connections,
@@ -896,17 +996,13 @@ second_output = result_second");
                     JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(outputsObj)) ??
                     new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
 
-                var connections = payload.TryGetValue("connections", out var connectionsObj) ?
-                    JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(JsonConvert.SerializeObject(connectionsObj)) ??
-                    new List<Dictionary<string, object>>() : new List<Dictionary<string, object>>();
-
-                LogDebug($"CreatePythonComponent: inputs={inputs.Count}, outputs={outputs.Count}, connections={connections.Count}");
+                LogDebug($"CreatePythonComponent: inputs={inputs.Count}, outputs={outputs.Count}");
 
                 // Create the component using the proven method
-                var pythonComponent = CreatePythonComponentAdvanced814(doc, x, y, code, inputs, outputs, connections);
+                var pythonComponent = CreatePythonComponentAdvanced814(doc, x, y, code, inputs, outputs);
                 if (pythonComponent != null)
                 {
-                    var message = $"Python component created successfully with {inputs.Count} inputs, {outputs.Count} outputs, {connections.Count} connections";
+                    var message = $"Python component created successfully with {inputs.Count} inputs, {outputs.Count} outputs. Use manage_wires to connect.";
                     AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, message);
 
                     // Send response with component UUID for future connections
@@ -916,8 +1012,7 @@ second_output = result_second");
                         ["componentUuid"] = pythonComponent.InstanceGuid.ToString(),
                         ["nickname"] = pythonComponent.NickName ?? "Python Component",
                         ["inputCount"] = inputs.Count,
-                        ["outputCount"] = outputs.Count,
-                        ["connectionCount"] = connections.Count
+                        ["outputCount"] = outputs.Count
                     };
 
                     SendSuccessResponseWithData("create_python_component", correlationId, message, responseData);
@@ -944,8 +1039,7 @@ second_output = result_second");
         }
 
         private IGH_Component CreatePythonComponentAdvanced814(GH_Document doc, float x, float y, string code,
-            List<Dictionary<string, object>> inputs, List<Dictionary<string, object>> outputs,
-            List<Dictionary<string, object>> connections)
+            List<Dictionary<string, object>> inputs, List<Dictionary<string, object>> outputs)
         {
             try
             {
@@ -1130,26 +1224,10 @@ second_output = result_second");
                         var allowTreeAccessProp = scriptVariableParamType.GetProperty("AllowTreeAccess");
                         allowTreeAccessProp?.SetValue(inputParam, true);
 
-                        // Set type hints if specified
+                        // Set type hints if specified (safe, non-breaking)
                         if (inputSpec.TryGetValue("typeHint", out var typeHintObj))
                         {
-                            var typeHint = S(typeHintObj);
-                            var typeHintsProp = scriptVariableParamType.GetProperty("TypeHints");
-                            var typeHints = typeHintsProp?.GetValue(inputParam);
-                            if (typeHints != null)
-                            {
-                                // Try different type hint methods
-                                if (typeHint == "double" || typeHint == "number")
-                                {
-                                    var selectMethod = typeHints.GetType().GetMethod("Select", new Type[] { typeof(Type) });
-                                    selectMethod?.Invoke(typeHints, new object[] { typeof(double) });
-                                }
-                                else
-                                {
-                                    var selectMethod = typeHints.GetType().GetMethod("Select", new Type[] { typeof(string) });
-                                    selectMethod?.Invoke(typeHints, new object[] { typeHint });
-                                }
-                            }
+                            TryApplyTypeHint(inputParam, scriptVariableParamType, S(typeHintObj));
                         }
 
                         // CreateAttributes and register
@@ -1223,23 +1301,9 @@ second_output = result_second");
                 {
                     doc.AddObject(ghComponent, true);
 
-                    // Make connections immediately after adding component (outside of solution context)
-                    // This follows Grasshopper best practices for topology changes
-                    if (connections != null && connections.Count > 0)
-                    {
-                        try
-                        {
-                            MakeConnections(doc, ghComponent, connections);
-
-                            // Trigger a solution update after connections are made
-                            ghComponent.ExpireSolution(true);
-                            doc.NewSolution(false);
-                        }
-                        catch (Exception ex)
-                        {
-                            LogDebug($"Connection failed for component: {ex.Message}");
-                        }
-                    }
+                    // Trigger a solution update
+                    ghComponent.ExpireSolution(true);
+                    doc.NewSolution(false);
                 }
                 catch (Exception ex)
                 {

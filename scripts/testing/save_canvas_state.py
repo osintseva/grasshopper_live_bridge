@@ -84,7 +84,9 @@ class CanvasStateSaver:
         """Get current canvas state from Grasshopper"""
         print("📊 Fetching canvas state...")
 
-        response = await self.send_command("get_canvas_info", {"includeDataPreviews": True, "maxPreviewLength": 30})
+        response = await self.send_command(
+            "get_canvas_info", {"includeDataPreviews": True, "maxPreviewLength": 30}
+        )
         if response and response.get("status") == "success":
             print("✅ Canvas state retrieved successfully!")
             return response.get("data", "")
@@ -112,29 +114,12 @@ class CanvasStateSaver:
 
 ## Canvas Pseudocode
 
-```
 {canvas_data}
-```
 
-## Analysis Summary
-
-This canvas state was captured from Grasshopper via the LiveCoding plugin WebSocket connection.
-
-### Key Information
-- **Generated**: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-- **Source**: Grasshopper LiveCoding Plugin
-- **Format**: Enhanced Pipe-Delimited Pseudocode
-
-### Usage
-This pseudocode representation can be used for:
-- Canvas documentation
-- Component analysis
-- Workflow understanding
-- Debugging and troubleshooting
 """
 
         try:
-            with open(filepath, 'w', encoding='utf-8') as f:
+            with open(filepath, "w", encoding="utf-8") as f:
                 f.write(markdown_content)
 
             print(f"✅ Canvas state saved to: {filepath}")

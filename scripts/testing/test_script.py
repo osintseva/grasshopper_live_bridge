@@ -10,7 +10,7 @@ in Grasshopper for Rhino 8, including custom inputs/outputs and automatic connec
 🔧 Features Tested:
 - ✅ Python component creation with custom inputs/outputs using ScriptVariableParam
 - ✅ Automatic source component generation (sliders, data sources)
-- ✅ Component-to-component connections
+- ✅ Component-to-component connections using manage_wire_connections
 - ✅ Connection verification through canvas analysis
 - ✅ Robust method overload handling and error recovery
 
@@ -160,15 +160,69 @@ vertices = points[:-1] if len(points) > 1 else points  # Remove duplicate closin
                 {"name": "polygon", "nickname": "P"},
                 {"name": "vertices", "nickname": "V"},
             ],
-            "connections": self._build_connections(),
         }
 
         response = await self.send_command("create_python_component", payload)
         if response and response.get("status") == "success":
             print("✅ Python component created successfully!")
+
+            # Get the component UUID for wire connections
+            data = response.get("data", {})
+            python_uuid = data.get("componentUuid") or data.get("componentId")
+            if python_uuid:
+                print(f"📝 Python component UUID: {python_uuid}")
+                # Now connect wires using manage_wires
+                await self.connect_wires(python_uuid)
             return True
         else:
             print(f"❌ Python creation failed: {response}")
+            return False
+
+    async def connect_wires(self, python_uuid):
+        """Connect wires to the Python component using manage_wire_connections"""
+        print("\n🔗 Connecting wires to Python component...")
+
+        # Build connections using stored slider UUIDs
+        connections = []
+
+        # Connection 1: NumSlider -> Python component input 0
+        num_slider_uuid = self.slider_uuids.get("NumSlider")
+        if num_slider_uuid:
+            connections.append({
+                "sourceComponentUuid": num_slider_uuid,
+                "sourceOutputIndex": 0,
+                "targetComponentUuid": python_uuid,
+                "targetInputIndex": 0
+            })
+
+        # Connection 2: CountSlider -> Python component input 1
+        count_slider_uuid = self.slider_uuids.get("CountSlider")
+        if count_slider_uuid:
+            connections.append({
+                "sourceComponentUuid": count_slider_uuid,
+                "sourceOutputIndex": 0,
+                "targetComponentUuid": python_uuid,
+                "targetInputIndex": 1
+            })
+
+        if not connections:
+            print("⚠️ No slider UUIDs available for connections")
+            return False
+
+        payload = {
+            "action": "connect",
+            "connections": connections
+        }
+
+        response = await self.send_command("manage_wires", payload)
+        if response and response.get("status") == "success":
+            data = response.get("data", {})
+            success_count = data.get("successCount", 0)
+            failure_count = data.get("failureCount", 0)
+            print(f"✅ Wire connections completed: {success_count} successful, {failure_count} failed")
+            return success_count > 0
+        else:
+            print(f"❌ Wire connection failed: {response}")
             return False
 
     async def create_source_components(self):
@@ -203,24 +257,6 @@ vertices = points[:-1] if len(points) > 1 else points  # Remove duplicate closin
         print(f"🔗 Stored {len(self.slider_uuids)} slider UUIDs for connections")
 
         return success_count >= 2  # Both sliders needed for testing
-
-    def _build_connections(self):
-        """Build connection list using actual component UUIDs when available"""
-        connections = []
-
-        # Connection 1: NumSlider -> Python component input 0
-        num_slider_id = self.slider_uuids.get("NumSlider", "NumSlider")  # Fallback to nickname
-        connections.append({"sourceId": num_slider_id, "sourceOutput": 0, "targetInput": 0})
-
-        # Connection 2: CountSlider -> Python component input 1
-        count_slider_id = self.slider_uuids.get("CountSlider", "CountSlider")  # Fallback to nickname
-        connections.append({"sourceId": count_slider_id, "sourceOutput": 0, "targetInput": 1})
-
-        print(f"🔗 Building connections:")
-        for i, conn in enumerate(connections):
-            print(f"   {i+1}. {conn['sourceId'][:8]}{'...' if len(conn['sourceId']) > 8 else ''} -> input {conn['targetInput']}")
-
-        return connections
 
     async def verify_connections(self):
         """Verify that connections were actually created"""
@@ -400,6 +436,6 @@ async def main():
 if __name__ == "__main__":
     print("🐍 Python Component Creation & Connection Tester")
     print("=" * 60)
-    print("🔧 Testing: Proven Method + Component Creation + Custom I/O + Connections")
+    print("🔧 Testing: Proven Method + Component Creation + Custom I/O + Wire Connections")
     print("=" * 60)
     asyncio.run(main())
