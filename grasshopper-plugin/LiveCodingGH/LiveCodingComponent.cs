@@ -186,6 +186,10 @@ namespace LiveCoding
                         ManageWires(doc, payload, cmd.CorrelationId);
                         break;
 
+                    case "get_component_info":
+                        GetComponentInfo(doc, payload, cmd.CorrelationId);
+                        break;
+
                     default:
                         AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Unknown action: {cmd.Action}");
                         SendErrorResponse(cmd.Action, cmd.CorrelationId, $"Unknown action: {cmd.Action}");
@@ -879,6 +883,144 @@ namespace LiveCoding
             {
                 LogDebug($"GetSelection error: {ex.Message}");
                 SendErrorResponse("get_selection", correlationId, $"Failed to get selection: {ex.Message}");
+            }
+        }
+
+        private void GetComponentInfo(GH_Document doc, Dictionary<string, object> payload, string correlationId)
+        {
+            try
+            {
+                LogDebug($"GetComponentInfo started. Doc null? {doc == null}");
+
+                var componentUuidStr = S(payload.TryGetValue("componentUuid", out var uuidObj) ? uuidObj : null, "");
+
+                if (string.IsNullOrEmpty(componentUuidStr))
+                {
+                    SendErrorResponse("get_component_info", correlationId, "componentUuid is required");
+                    return;
+                }
+
+                if (!Guid.TryParse(componentUuidStr, out var componentGuid))
+                {
+                    SendErrorResponse("get_component_info", correlationId, $"Invalid UUID format: {componentUuidStr}");
+                    return;
+                }
+
+                // Find the component in the document
+                var obj = doc.FindObject(componentGuid, true);
+                if (obj == null)
+                {
+                    SendErrorResponse("get_component_info", correlationId, $"Component not found: {componentUuidStr}");
+                    return;
+                }
+
+                // Build component info
+                var componentData = new Dictionary<string, object>
+                {
+                    ["instanceGuid"] = obj.InstanceGuid.ToString(),
+                    ["name"] = obj.Name ?? "",
+                    ["nickname"] = obj.NickName ?? "",
+                    ["category"] = obj.Category ?? "",
+                    ["subCategory"] = obj.SubCategory ?? "",
+                    ["description"] = obj.Description ?? ""
+                };
+
+                // Add position if available
+                if (obj.Attributes != null)
+                {
+                    componentData["position"] = new Dictionary<string, object>
+                    {
+                        ["x"] = obj.Attributes.Pivot.X,
+                        ["y"] = obj.Attributes.Pivot.Y
+                    };
+                }
+
+                // Extract inputs and outputs for components
+                if (obj is IGH_Component ghComponent)
+                {
+                    componentData["componentType"] = "component";
+
+                    var inputs = new List<Dictionary<string, object>>();
+                    foreach (var param in ghComponent.Params.Input)
+                    {
+                        inputs.Add(new Dictionary<string, object>
+                        {
+                            ["name"] = param.Name,
+                            ["nickname"] = param.NickName,
+                            ["typeName"] = param.TypeName,
+                            ["uuid"] = param.InstanceGuid.ToString(),
+                            ["optional"] = param.Optional,
+                            ["sourceCount"] = param.Sources.Count
+                        });
+                    }
+                    componentData["inputs"] = inputs;
+
+                    var outputs = new List<Dictionary<string, object>>();
+                    foreach (var param in ghComponent.Params.Output)
+                    {
+                        outputs.Add(new Dictionary<string, object>
+                        {
+                            ["name"] = param.Name,
+                            ["nickname"] = param.NickName,
+                            ["typeName"] = param.TypeName,
+                            ["uuid"] = param.InstanceGuid.ToString(),
+                            ["recipientCount"] = param.Recipients.Count
+                        });
+                    }
+                    componentData["outputs"] = outputs;
+                }
+                else if (obj is IGH_Param ghParam)
+                {
+                    componentData["componentType"] = "parameter";
+                    componentData["typeName"] = ghParam.TypeName;
+                    componentData["sourceCount"] = ghParam.Sources.Count;
+                    componentData["recipientCount"] = ghParam.Recipients.Count;
+                }
+
+                // Extract runtime messages (errors, warnings, remarks)
+                var runtimeMessages = new List<Dictionary<string, object>>();
+
+                if (obj is IGH_ActiveObject activeObj)
+                {
+                    foreach (var msg in activeObj.RuntimeMessages(GH_RuntimeMessageLevel.Error))
+                    {
+                        runtimeMessages.Add(new Dictionary<string, object>
+                        {
+                            ["level"] = "Error",
+                            ["text"] = msg
+                        });
+                    }
+
+                    foreach (var msg in activeObj.RuntimeMessages(GH_RuntimeMessageLevel.Warning))
+                    {
+                        runtimeMessages.Add(new Dictionary<string, object>
+                        {
+                            ["level"] = "Warning",
+                            ["text"] = msg
+                        });
+                    }
+
+                    foreach (var msg in activeObj.RuntimeMessages(GH_RuntimeMessageLevel.Remark))
+                    {
+                        runtimeMessages.Add(new Dictionary<string, object>
+                        {
+                            ["level"] = "Remark",
+                            ["text"] = msg
+                        });
+                    }
+                }
+
+                componentData["runtimeMessages"] = runtimeMessages;
+
+                LogDebug($"Component info extracted: {componentData["name"]}, {runtimeMessages.Count} runtime messages");
+
+                SendSuccessResponseWithData("get_component_info", correlationId,
+                    $"Component info retrieved successfully", componentData);
+            }
+            catch (Exception ex)
+            {
+                LogDebug($"GetComponentInfo error: {ex.Message}");
+                SendErrorResponse("get_component_info", correlationId, $"Failed to get component info: {ex.Message}");
             }
         }
 

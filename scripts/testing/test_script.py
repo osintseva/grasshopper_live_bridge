@@ -355,6 +355,42 @@ vertices = points[:-1] if len(points) > 1 else points  # Remove duplicate closin
             print("❌ Failed to get canvas info")
             return False
 
+    async def test_get_component_info(self):
+        """Test get_component_info endpoint with runtime messages"""
+        print("\\n🔍 Testing get_component_info...")
+
+        # Use one of the previously created slider UUIDs
+        test_uuid = self.slider_uuids.get("NumSlider")
+        if not test_uuid:
+            print("⚠️ No component UUID available for testing")
+            return False
+
+        print(f"📝 Testing with UUID: {test_uuid}")
+
+        response = await self.send_command("get_component_info", {"componentUuid": test_uuid})
+        if response and response.get("status") == "success":
+            data = response.get("data", {})
+            print("✅ Component info retrieved successfully!")
+            print(f"   Name: {data.get('name', 'N/A')}")
+            print(f"   Nickname: {data.get('nickname', 'N/A')}")
+            print(f"   Type: {data.get('componentType', 'N/A')}")
+
+            # Check runtime messages
+            runtime_messages = data.get("runtimeMessages", [])
+            if runtime_messages:
+                print(f"   Runtime Messages: {len(runtime_messages)}")
+                for msg in runtime_messages:
+                    level = msg.get("level", "Unknown")
+                    text = msg.get("text", "")
+                    print(f"      [{level}] {text}")
+            else:
+                print("   Runtime Messages: None")
+
+            return True
+        else:
+            print(f"❌ Failed to get component info: {response}")
+            return False
+
     async def run_all_tests(self):
         """Run complete test suite"""
         print("🧪 Starting Python Component Creation Test")
@@ -370,6 +406,7 @@ vertices = points[:-1] if len(points) > 1 else points  # Remove duplicate closin
                 "create_sources": await self.create_source_components(),
                 "python_component": await self.test_python_component(),
                 "canvas_info": await self.get_canvas_info(),
+                "get_component_info": await self.test_get_component_info(),
                 "verify_connections": await self.verify_connections(),
             }
 

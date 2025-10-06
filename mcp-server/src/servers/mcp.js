@@ -156,7 +156,7 @@ export function createMcpServer(config = {}) {
         },
         {
           name: "create_script_component",
-          description: "Create a Python component on the Grasshopper canvas with custom inputs/outputs. Use manage_wire_connections separately to connect wires.",
+          description: "Create a Python component on the Grasshopper canvas with custom inputs/outputs. WORKFLOW: (1) Create component, (2) Use manage_wire_connections to connect inputs (do this automatically unless user specifies otherwise), (3) ALWAYS use get_component_info to check for runtime errors/warnings, (4) If errors found, fix the code and recreate. IMPORTANT: To output lists/trees properly, use DataTree: `import Grasshopper as gh` then `output_var = gh.DataTree[object]()` and `output_var.AddRange(list_data, gh.Kernel.Data.GH_Path(0))`. Single values can be assigned directly.",
           inputSchema: {
             type: "object",
             properties: {

@@ -50,7 +50,7 @@ AI (Claude Code) ←→ MCP Server (Node.js) ←→ WebSocket (ws://localhost:81
 **1. Grasshopper Plugin (`grasshopper-plugin/LiveCodingGH/LiveCodingComponent.cs`)**
 - WebSocket server on port 8181 at `/live` endpoint
 - Message pump processes commands on UI thread (50ms interval)
-- Supports actions: `ping`, `create_slider`, `create_python_component`, `update_script`, `get_canvas_info`, `get_selection`, `manage_wires`
+- Supports actions: `ping`, `create_slider`, `create_python_component`, `update_script`, `get_canvas_info`, `get_selection`, `get_component_info`, `manage_wires`
 - All commands use correlation IDs for async request/response matching
 
 **2. MCP Server (`mcp-server/`)**
@@ -77,7 +77,22 @@ variable|x,y|comp_uuid: ComponentType = "Component Name" | ["Input Name"(InputTy
 - Method overload handling: tries `Create(string, string)` → `Create(string)` → `Create(string, Bitmap, bool)`
 - **IMPORTANT**: Default parameters (x, y, out, a) must be removed before adding custom ones
 - Call `VariableParameterMaintenance()` after adding custom parameters
-- **Wire connections**: Use separate `manage_wire_connections` tool after component creation for reliable wiring
+- **Recommended Workflow**:
+  1. Create component with `create_script_component`
+  2. Connect inputs with `manage_wire_connections` (do this automatically unless user specifies otherwise)
+  3. **ALWAYS** check for errors with `get_component_info` to see runtime messages
+  4. If errors/warnings found, fix the code and recreate the component
+- **Outputting Lists/Trees**: To properly output lists or trees from Python components, use DataTree:
+  ```python
+  import Grasshopper as gh
+
+  # For list outputs
+  output_var = gh.DataTree[object]()
+  output_var.AddRange(list_data, gh.Kernel.Data.GH_Path(0))
+
+  # Single values can be assigned directly
+  single_output = value
+  ```
 
 ### WebSocket Message Protocol
 All messages use JSON with correlation IDs:
@@ -123,7 +138,7 @@ All tools in `mcp-server/src/tools/canvas.js`:
 - `get_canvas_state` - Full canvas pseudocode
 - `get_selection` - Currently selected components (full UUIDs)
 - `query_canvas_pseudocode` - Text/regex/wildcard search
-- `get_component_info` - Detailed component data by UUID
+- `get_component_info` - Detailed component data by UUID including runtime messages (errors, warnings, remarks)
 - `find_components` - Search by name/type/error status
 - `create_script_component` - Create Python components with custom I/O (no automatic wiring)
 - `manage_wire_connections` - Connect/disconnect wires between components (use this after creating components)

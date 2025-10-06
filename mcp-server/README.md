@@ -60,6 +60,8 @@ Once connected, you can ask Claude Code to:
 - *"What's connected to this component?"*
 - *"Show me the selected components"*
 - *"Give me statistics about my canvas"*
+- *"Does this component have any errors or warnings?"*
+- *"Show me all runtime messages for the selected component"*
 
 ## 🆘 Troubleshooting
 
@@ -118,7 +120,7 @@ The bridge provides 5 focused MCP tools for AI interaction:
 - `get_canvas_state` - Get complete canvas pseudocode
 - `get_selection` - Get currently selected components
 - `query_canvas_pseudocode` - Search canvas with text/regex
-- `get_component_info` - Get details about specific components
+- `get_component_info` - Get details about specific components including runtime messages (errors, warnings, remarks)
 - `find_components` - Search components by name/type
 
 ### HTTP API Endpoints

@@ -266,29 +266,98 @@ export async function getComponentInfo(args = {}) {
   logger.toolCall('getComponentInfo', args);
 
   try {
+    const client = getGrasshopperClient();
+
+    // Call the new C# action to get real component data
+    logger.info('Sending get_component_info request to Grasshopper');
+    const response = await client.send('get_component_info', { componentUuid });
+
+    if (response && response.status === 'success') {
+      const componentData = response.data || {};
+
+      // Get pseudocode for additional context
+      const cache = getCanvasCache();
+      const pseudocode = await cache.getCanvas();
+
+      // Find the component's line in pseudocode for more details
+      const lines = pseudocode.split(/\r?\n/);
+      const normalizedUuid = componentUuid.toLowerCase();
+
+      let componentLine = null;
+      let parsedComponent = null;
+
+      // Try to find the component using the new format (standard hyphenated UUID)
+      for (const line of lines) {
+        const parsed = parseEnhancedPipeDelimitedLine(line);
+        if (parsed && parsed.compUuid.toLowerCase() === normalizedUuid) {
+          componentLine = line;
+          parsedComponent = parsed;
+          break;
+        }
+      }
+
+      // Fallback to old string matching for backwards compatibility
+      if (!componentLine) {
+        componentLine = lines.find(line => line.toLowerCase().includes(normalizedUuid));
+      }
+
+      return {
+        found: true,
+        componentUuid,
+        component: {
+          instanceGuid: componentData.instanceGuid,
+          name: componentData.name,
+          nickname: componentData.nickname,
+          category: componentData.category,
+          subCategory: componentData.subCategory,
+          description: componentData.description,
+          componentType: componentData.componentType,
+          position: componentData.position,
+          inputs: componentData.inputs || [],
+          outputs: componentData.outputs || [],
+          typeName: componentData.typeName,
+          sourceCount: componentData.sourceCount,
+          recipientCount: componentData.recipientCount
+        },
+        runtimeMessages: componentData.runtimeMessages || [],
+        pseudocodeLine: componentLine,
+        parsedComponent
+      };
+    } else if (response && response.status === 'error') {
+      // Component not found or other error from C# side
+      logger.warn(`Component info request failed: ${response.message}`);
+      return {
+        found: false,
+        componentUuid,
+        error: response.message
+      };
+    } else {
+      throw new Error('Unexpected response from get_component_info');
+    }
+  } catch (error) {
+    logger.error('Failed to get component info', error);
+
+    // Fallback to cache-based parsing if WebSocket fails
+    logger.warn('Falling back to cache-based component info');
     const cache = getCanvasCache();
     const component = await cache.getComponentInfo(componentUuid);
 
     if (!component) {
       return {
         found: false,
-        componentUuid
+        componentUuid,
+        error: error.message
       };
     }
 
     // Get pseudocode for additional context
     const pseudocode = await cache.getCanvas();
-
-    // Find the component's line in pseudocode for more details
-    // Try to parse with the new Enhanced Pipe-Delimited format first
-    // Split by both Unix (\n) and Windows (\r\n) line endings
     const lines = pseudocode.split(/\r?\n/);
     const normalizedUuid = componentUuid.toLowerCase();
 
     let componentLine = null;
     let parsedComponent = null;
 
-    // Try to find the component using the new format (standard hyphenated UUID)
     for (const line of lines) {
       const parsed = parseEnhancedPipeDelimitedLine(line);
       if (parsed && parsed.compUuid.toLowerCase() === normalizedUuid) {
@@ -298,7 +367,6 @@ export async function getComponentInfo(args = {}) {
       }
     }
 
-    // Fallback to old string matching for backwards compatibility
     if (!componentLine) {
       componentLine = lines.find(line => line.toLowerCase().includes(normalizedUuid));
     }
@@ -308,11 +376,10 @@ export async function getComponentInfo(args = {}) {
       component,
       componentUuid,
       pseudocodeLine: componentLine,
-      parsedComponent
+      parsedComponent,
+      runtimeMessages: [], // Not available in fallback mode
+      fallback: true
     };
-  } catch (error) {
-    logger.error('Failed to get component info', error);
-    throw error;
   }
 }
 
