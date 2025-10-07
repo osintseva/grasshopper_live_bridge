@@ -253,9 +253,9 @@ circles|100,200|uuid: Circle = "Circles" | ["Points"(Point):uuid] | ["Circles"(C
 - Returns top N results with configurable context window
 - Fast response times (< 100ms per query)
 
-**Implementation Approaches:**
+**Implementation Approach:**
 
-#### Smart Keyword Matching with CamelCase Splitting ⭐ **RECOMMENDED**
+#### Smart Keyword Matching with CamelCase Splitting
 **Complexity:** 🟢 Simple (150-200 lines)
 **Libraries:** None
 **Effort:** 2-3 hours
@@ -282,44 +282,3 @@ circles|100,200|uuid: Circle = "Circles" | ["Points"(Point):uuid] | ["Circles"(C
 **Cons:**
 - Not as sophisticated as ML-based approaches
 - May need weight tuning for optimal results
-
-**MCP Tool Design:**
-
-**Tool Name:** `search_rhinocommon_docs`
-
-**Input Schema:**
-```javascript
-{
-  "query": "Brep Line Intersection",        // Search query
-  "semantic": true,                         // false for exact/keyword search (default: true)
-  "maxResults": 10,                         // Number of results (default: 10)
-  "contextWindow": 1000                     // Characters around match (default: 1000)
-}
-```
-
-**Response Format:**
-```javascript
-{
-  "results": [
-    {
-      "match": "CurveBrep method in Rhino.Geometry.Intersect.Intersection",
-      "score": 0.87,
-      "context": "...1000 chars of surrounding context...",
-      "lineNumber": 17754,
-      "category": "Method",
-      "namespace": "Rhino.Geometry.Intersect"
-    }
-  ],
-  "totalMatches": 25,
-  "queryTime": "45ms",
-  "searchType": "semantic"
-}
-```
-
-**Results:**
-- Parses 2,461 documentation chunks from 53,020 lines
-- Semantic search: ~2-3 seconds per query
-- Keyword search: ~40-75ms per query
-- Successfully finds relevant methods (e.g., "Brep Curve Intersection" → `BrepCurveList`, `Intersection`, `CurveIntersections`)
-- MCP tool fully functional with configurable parameters
-
