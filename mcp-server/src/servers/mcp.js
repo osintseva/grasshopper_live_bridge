@@ -12,6 +12,7 @@ import {
 import { getStore } from '../state/store.js';
 import { getLogger } from '../utils/logger.js';
 import * as canvasTools from '../tools/canvas.js';
+import * as docsSearch from '../tools/docs-search.js';
 import * as prompts from '../prompts/index.js';
 
 const logger = getLogger();
@@ -109,7 +110,7 @@ export function createMcpServer(config = {}) {
         },
         {
           name: "get_component_info",
-          description: "Get detailed information about a specific component",
+          description: "Get detailed information about a specific component. Returns component details including runtimeMessages (errors/warnings). If this is a Python component and runtimeMessages contains errors, ask the user whether you should launch an agent to debug and fix the errors by consulting the RhinoCommon documentation using search_rhinocommon_docs.",
           inputSchema: {
             type: "object",
             properties: {
@@ -156,7 +157,7 @@ export function createMcpServer(config = {}) {
         },
         {
           name: "create_script_component",
-          description: "Create a Python component on the Grasshopper canvas with custom inputs/outputs. WORKFLOW: (1) Create component, (2) Use manage_wire_connections to connect inputs (do this automatically unless user specifies otherwise), (3) ALWAYS use get_component_info to check for runtime errors/warnings, (4) If errors found, fix the code and recreate. IMPORTANT: To output lists/trees properly, use DataTree: `import Grasshopper as gh` then `output_var = gh.DataTree[object]()` and `output_var.AddRange(list_data, gh.Kernel.Data.GH_Path(0))`. Single values can be assigned directly.",
+          description: "Create a Python component on the Grasshopper canvas with custom inputs/outputs. WORKFLOW: (1) Create component, (2) Use manage_wire_connections to connect inputs (do this automatically unless user specifies otherwise), (3) ALWAYS use get_component_info to check for runtime errors/warnings, (4) If errors found, use search_rhinocommon_docs to find relevant API documentation, then fix the code and recreate. IMPORTANT: To output lists/trees properly, use DataTree: `import Grasshopper as gh` then `output_var = gh.DataTree[object]()` and `output_var.AddRange(list_data, gh.Kernel.Data.GH_Path(0))`. Single values can be assigned directly.",
           inputSchema: {
             type: "object",
             properties: {
@@ -303,6 +304,36 @@ export function createMcpServer(config = {}) {
             additionalProperties: false,
           },
         },
+        {
+          name: "search_rhinocommon_docs",
+          description: "Search RhinoCommon API documentation semantically or with keywords. Finds relevant classes, methods, and properties.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              query: {
+                type: "string",
+                description: "Search query (e.g., 'Brep Line Intersection', 'surface intersect', 'point on curve')"
+              },
+              semantic: {
+                type: "boolean",
+                description: "Use semantic search (true) or exact keyword matching (false)",
+                default: true
+              },
+              maxResults: {
+                type: "number",
+                description: "Maximum number of results to return",
+                default: 10
+              },
+              contextWindow: {
+                type: "number",
+                description: "Number of characters to include around matches for context",
+                default: 1000
+              }
+            },
+            required: ["query"],
+            additionalProperties: false,
+          },
+        },
       ],
     };
   });
@@ -345,6 +376,10 @@ export function createMcpServer(config = {}) {
 
         case "manage_wire_connections":
           result = await canvasTools.manageWireConnections(args || {});
+          break;
+
+        case "search_rhinocommon_docs":
+          result = await docsSearch.searchRhinoCommonDocs(args || {});
           break;
 
         default:
