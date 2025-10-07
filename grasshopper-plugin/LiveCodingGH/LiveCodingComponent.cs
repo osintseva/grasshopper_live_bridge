@@ -780,7 +780,7 @@ namespace LiveCoding
             // Store full UUID for connection purposes
             comp.FullUuidString = comp.Guid.ToString();
 
-            return $"{baseName}_{fullUuid}";
+            return $"{baseName}";
         }
 
         /// <summary>
