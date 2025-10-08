@@ -28,7 +28,8 @@ export function parseEnhancedPipeDelimitedLine(line) {
   // We need to handle nested brackets in type names like List[Curve]
   // Fixed regex to handle negative coordinates: -?\d+ instead of \d+
   // Updated to handle standard hyphenated GUIDs (36 characters): xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-  const match = cleanLine.match(/^(\w+)\|(-?\d+,-?\d+)\|([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}):\s*(.+?)\s*=\s*"([^"]+)"\s*\|\s*(\[.*?\])\s*\|\s*(\[.*?\])(?:\s*#\s*(.+))?$/);
+  // Variable names can include hyphens (e.g., explode_323814a3-8f81-4c36-8851-d59890fd6bd0)
+  const match = cleanLine.match(/^([\w-]+)\|(-?\d+,-?\d+)\|([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}):\s*(.+?)\s*=\s*"([^"]+)"\s*\|\s*(\[.*?\])\s*\|\s*(\[.*?\])(?:\s*#\s*(.+))?$/);
 
   if (!match) {
     return null;
