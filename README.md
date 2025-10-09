@@ -80,6 +80,18 @@ The test suite validates:
 - **🐍 Python Component Creation** - Proven method for programmatic Python component creation with custom I/O using ScriptVariableParam
 - **🔗 Wire Management** - Separate wire connection/disconnection tool for reliable component linking
 - **🤖 MCP Integration** - Perfect for AI agents to understand and modify your canvas
+- **🧠 Dynamic Agent Persona System** - AI agents dynamically construct their system prompts for specialized tasks
+
+### 🧠 Dynamic Agent Persona System
+
+AI agents can dynamically construct their system prompts by loading specialized roles, workflow recipes, and reference docs on-demand using pseudo-XML formatted content.
+
+**Three MCP Tools:**
+- `get_role({ key })` - Load agent identity/expertise (e.g., "gh-architect", "debugger", "converter")
+- `get_recipe({ key })` - Load step-by-step workflow checklist (e.g., "create-python-component", "debug-workflow")
+- `get_doc({ key })` - Load reference documentation (e.g., "pseudocode-format", "component-types")
+
+**Subagent Usage:** When spawning subagents, each can load a specific role to assume specialized expertise for its task. The subagent calls `get_role()` to get its identity, then follows linked recipes and loads docs as needed - dynamically building its own system prompt for autonomous execution.
 
 ## Architecture
 

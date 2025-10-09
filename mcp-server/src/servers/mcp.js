@@ -13,6 +13,7 @@ import { getStore } from '../state/store.js';
 import { getLogger } from '../utils/logger.js';
 import * as canvasTools from '../tools/canvas.js';
 import * as docsSearch from '../tools/docs-search.js';
+import * as agentPersona from '../tools/agent-persona.js';
 import * as prompts from '../prompts/index.js';
 
 const logger = getLogger();
@@ -334,6 +335,52 @@ export function createMcpServer(config = {}) {
             additionalProperties: false,
           },
         },
+        // Agent Persona System
+        {
+          name: "get_role",
+          description: "Load an agent role/persona that defines identity and expertise. Roles use pseudo-XML formatting with <identity>, <capabilities>, <recipe_selection>, and <workflows> sections. Available roles: 'gh-architect' (canvas architect with 2 recipes), 'debugger' (error diagnosis specialist with 1 recipe), 'converter' (canvas-to-code expert, no recipes). Example: get_role({ key: 'gh-architect' })",
+          inputSchema: {
+            type: "object",
+            properties: {
+              key: {
+                type: "string",
+                description: "Role key: 'gh-architect', 'debugger', or 'converter'"
+              }
+            },
+            required: ["key"],
+            additionalProperties: false,
+          },
+        },
+        {
+          name: "get_recipe",
+          description: "Load a step-by-step workflow recipe with pseudo-XML formatting (<overview>, <prerequisites>, <steps>, <related>). Available recipes: 'create-python-component' (5-step component creation with auto-wiring), 'debug-workflow' (5-step error diagnosis), 'wire-management' (4-step connection workflow). Example: get_recipe({ key: 'create-python-component' })",
+          inputSchema: {
+            type: "object",
+            properties: {
+              key: {
+                type: "string",
+                description: "Recipe key: 'create-python-component', 'debug-workflow', or 'wire-management'"
+              }
+            },
+            required: ["key"],
+            additionalProperties: false,
+          },
+        },
+        {
+          name: "get_doc",
+          description: "Load reference documentation with pseudo-XML formatting (custom domain-specific tags). Available docs: 'pseudocode-format' (canvas format spec with <format>, <examples>, <uuid_format>), 'component-types' (component categorization), 'connection-strategies' (wire connection best practices). Example: get_doc({ key: 'pseudocode-format' })",
+          inputSchema: {
+            type: "object",
+            properties: {
+              key: {
+                type: "string",
+                description: "Doc key: 'pseudocode-format', 'component-types', or 'connection-strategies'"
+              }
+            },
+            required: ["key"],
+            additionalProperties: false,
+          },
+        },
       ],
     };
   });
@@ -380,6 +427,19 @@ export function createMcpServer(config = {}) {
 
         case "search_rhinocommon_docs":
           result = await docsSearch.searchRhinoCommonDocs(args || {});
+          break;
+
+        // Agent Persona tools
+        case "get_role":
+          result = await agentPersona.getRole(args || {});
+          break;
+
+        case "get_recipe":
+          result = await agentPersona.getRecipe(args || {});
+          break;
+
+        case "get_doc":
+          result = await agentPersona.getDoc(args || {});
           break;
 
         default:

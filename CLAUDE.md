@@ -134,7 +134,7 @@ The `MakeConnections` method uses 5 fallback strategies:
 
 ## MCP Tools Available
 
-All tools in `mcp-server/src/tools/canvas.js`:
+### Canvas Tools (`mcp-server/src/tools/canvas.js`)
 - `get_canvas_state` - Full canvas pseudocode
 - `get_selection` - Currently selected components (full UUIDs)
 - `query_canvas_pseudocode` - Text/regex/wildcard search
@@ -142,6 +142,18 @@ All tools in `mcp-server/src/tools/canvas.js`:
 - `find_components` - Search by name/type/error status
 - `create_script_component` - Create Python components with custom I/O (no automatic wiring)
 - `manage_wire_connections` - Connect/disconnect wires between components (use this after creating components)
+- `search_rhinocommon_docs` - Semantic/keyword search through RhinoCommon API documentation
+
+### Dynamic Agent Persona System (`mcp-server/src/tools/agent-persona.js`)
+
+AI agents dynamically construct their system prompts by loading specialized roles, workflow recipes, and reference docs on-demand using pseudo-XML formatted content from `misc/agent-persona/`.
+
+**Three Tools:**
+- `get_role({ key })` - Load agent identity/expertise returning `<identity>`, `<capabilities>`, `<recipe_selection>` sections
+- `get_recipe({ key })` - Load step-by-step workflow checklist returning `<overview>`, `<prerequisites>`, `<steps>` sections
+- `get_doc({ key })` - Load reference documentation with domain-specific semantic tags
+
+**Subagent Pattern:** Spawned subagents call `get_role()` first to assume specialized expertise (e.g., "gh-architect"), then follow linked recipes and load docs as needed - building their own system prompt for autonomous task execution.
 
 ## Development Patterns
 

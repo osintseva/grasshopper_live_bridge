@@ -189,7 +189,7 @@ export function createHttpServer(config = {}) {
   app.get('/api/snapshots/:id', (req, res) => {
     try {
       const snapshot = store.getSnapshot(req.params.id);
-      
+
       if (!snapshot) {
         res.status(404).json({
           status: 'error',
@@ -197,7 +197,7 @@ export function createHttpServer(config = {}) {
         });
         return;
       }
-      
+
       res.json({
         status: 'success',
         data: snapshot
@@ -210,7 +210,7 @@ export function createHttpServer(config = {}) {
       });
     }
   });
-  
+
   // Start server
   const server = app.listen(port, () => {
     logger.info(`HTTP server listening on http://localhost:${port}`);
